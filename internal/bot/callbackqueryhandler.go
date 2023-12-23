@@ -43,13 +43,123 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		} else if strings.HasPrefix(callbackQuery.Data, "update_game_draw_cycle?") {
 			// 群配置-更新游戏开奖周期
 			updateGameDrawCycleCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, "query_chat_group_user?") {
+			// 查询用户信息
+			queryChatGroupUser(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, "update_chat_group_user_balance?") {
+			// 修改用户积分
+			updateChatGroupUserBalance(bot, callbackQuery)
 		}
+	}
+}
+
+func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	chatId := query.Message.Chat.ID
+	fromUser := query.From
+
+	queryString := query.Data[strings.Index(query.Data, "update_chat_group_user_balance?")+len("update_chat_group_user_balance?"):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 校验当前对话人是否为该群管理员
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, "请按照以下格式修改用户积分:\n"+
+		"增加用户积分:[用户Id]+[积分] 例子: 10086+100\n"+
+		"减少用户积分:[用户Id]-[积分] 例子: 10086-100\n"+
+		"设置用户积分:[用户Id]=[积分] 例子: 10086=1000")
+
+	// 设置当前机器人状态
+	err = PrivateChatCacheAddRedis(fromUser.ID, &common.BotPrivateChatCache{
+		ChatStatus:  enums.WaitUpdateUserBalance.Value,
+		ChatGroupId: chatGroupId,
+	})
+
+	if err != nil {
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitGameDrawCycle.Value)
+		return
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
+	}
+}
+
+func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+
+	chatId := query.Message.Chat.ID
+	fromUser := query.From
+
+	queryString := query.Data[strings.Index(query.Data, "query_chat_group_user?")+len("query_chat_group_user?"):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 校验当前对话人是否为该群管理员
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, "请输入用户名称，如:@username")
+
+	// 设置当前机器人状态
+	err = PrivateChatCacheAddRedis(chatId, &common.BotPrivateChatCache{
+		ChatStatus:  enums.WaitQueryUser.Value,
+		ChatGroupId: chatGroupId,
+	})
+
+	if err != nil {
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", chatId, enums.WaitGameDrawCycle.Value)
+		return
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
 	}
 }
 
 func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatId := query.Message.Chat.ID
-	user := query.From
+	fromUser := query.From
 
 	// 查询当前群配置的游戏类型
 	queryString := query.Data[strings.Index(query.Data, "update_game_draw_cycle?")+len("update_game_draw_cycle?"):]
@@ -70,16 +180,23 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 
 	chatGroupId := callBackData["chatGroupId"]
 
+	// 校验当前对话人是否为该群管理员
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		return
+	}
+
 	sendMsg := tgbotapi.NewMessage(chatId, "请输入️要设置的开奖周期(1-60的整数)(单位:分钟)")
 
 	// 设置当前机器人状态
-	err = PrivateChatCacheAddRedis(user.ID, &common.BotPrivateChatCache{
+	err = PrivateChatCacheAddRedis(fromUser.ID, &common.BotPrivateChatCache{
 		ChatStatus:  enums.WaitGameDrawCycle.Value,
 		ChatGroupId: chatGroupId,
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", user.ID, enums.WaitGameDrawCycle.Value)
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitGameDrawCycle.Value)
 		return
 	}
 
@@ -94,7 +211,7 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatID := query.Message.Chat.ID
 	messageID := query.Message.MessageID
-	user := query.From
+	fromUser := query.From
 
 	// 查询使用的chatGroupId为内联键盘中的Data
 	queryString := query.Data[strings.Index(query.Data, "update_gameplay_status?")+len("update_gameplay_status?"):]
@@ -116,9 +233,9 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 	chatGroupId := callBackData["chatGroupId"]
 
 	// 校验当前对话人是否为该群管理员
-	err = checkGroupAdmin(chatGroupId, user.ID)
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, user.ID)
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
 		return
 	}
 
@@ -140,11 +257,19 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 		chatGroupUpdate.GameplayStatus = enums.GameplayStatusOFF.Value
 		chatGroup.GameplayStatus = enums.GameplayStatusOFF.Value
 		gameStop(chatGroup)
+		// 发送提示消息
+		sendMsg := tgbotapi.NewMessage(chatID, "关闭成功!")
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatID)
 	} else {
 		chatGroupUpdate.GameplayStatus = enums.GameplayStatusON.Value
 		chatGroup.GameplayStatus = enums.GameplayStatusON.Value
 		// 开启
 		gameStart(bot, chatGroup)
+		// 发送提示消息
+		sendMsg := tgbotapi.NewMessage(chatID, "开启成功!")
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatID)
 	}
 	err = chatGroupUpdate.UpdateChatGroupStatusById(db)
 	if err != nil {
@@ -171,7 +296,7 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 
 func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatId := query.Message.Chat.ID
-	user := query.From
+	fromUser := query.From
 	messageId := query.Message.MessageID
 
 	// 查询当前群配置的游戏类型
@@ -195,9 +320,9 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	gameplayType := callBackData["gameplayType"]
 
 	// 校验当前对话人是否为该群管理员
-	err = checkGroupAdmin(chatGroupId, user.ID)
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, user.ID)
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
 		return
 	}
 
@@ -233,7 +358,7 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 
 func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatId := query.Message.Chat.ID
-	user := query.From
+	fromUser := query.From
 	messageId := query.Message.MessageID
 
 	// 查询当前群配置的游戏类型
@@ -256,9 +381,9 @@ func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatGroupId := callBackData["chatGroupId"]
 
 	// 校验当前对话人是否为该群管理员
-	err = checkGroupAdmin(chatGroupId, user.ID)
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, user.ID)
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
 		return
 	}
 
@@ -288,7 +413,7 @@ func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 func chatGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatID := query.Message.Chat.ID
 	messageID := query.Message.MessageID
-	user := query.From
+	fromUser := query.From
 
 	// 查询使用的chatGroupId为内联键盘中的Data
 	queryString := query.Data[strings.Index(query.Data, "chat_group_config?")+len("chat_group_config?"):]
@@ -310,9 +435,9 @@ func chatGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatGroupId := callBackData["chatGroupId"]
 
 	// 校验当前对话人是否为该群管理员
-	err = checkGroupAdmin(chatGroupId, user.ID)
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, user.ID)
+		log.Printf("chatGroupId %v tgUserId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
 		return
 	}
 
@@ -389,12 +514,12 @@ func addAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 }
 
 func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
-	user := query.From
+	fromUser := query.From
 	chatId := query.Message.Chat.ID
 
 	sendMsg, err := buildAddAdminGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询管理群列表异常 %s ", user.ID, err.Error())
+		log.Printf("TgUserId %v 查询管理群列表异常 %s ", fromUser.ID, err.Error())
 		return
 	}
 

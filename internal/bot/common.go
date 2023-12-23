@@ -92,7 +92,7 @@ func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup) ([]tgbo
 
 func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTextConfig, error) {
 	chatId := query.Message.Chat.ID
-	user := query.Message.From
+	fromUser := query.From
 	messageId := query.Message.MessageID
 
 	var sendMsg tgbotapi.EditMessageTextConfig
@@ -105,11 +105,11 @@ func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessage
 	)
 
 	// 查询当前消息来源人关联的群聊
-	chatGroupAdmins, err := model.ListChatGroupAdminByAdminTgUserId(db, user.ID)
+	chatGroupAdmins, err := model.ListChatGroupAdminByAdminTgUserId(db, fromUser.ID)
 	if len(chatGroupAdmins) == 0 {
 		sendMsg = tgbotapi.NewEditMessageText(chatId, messageId, "你暂无管理的群!")
 	} else if err != nil {
-		log.Printf("TgUserId %v 查询管理群列表异常 %s ", user.ID, err.Error())
+		log.Printf("TgUserId %v 查询管理群列表异常 %s ", chatId, err.Error())
 		return nil, errors.New("查询管理群列表异常")
 	} else {
 		sendMsg = tgbotapi.NewEditMessageText(chatId, messageId, fmt.Sprintf("您有%v个管理的群:", len(chatGroupAdmins)))
@@ -332,6 +332,10 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⏲️开奖周期: %v 分钟", chatGroup.GameDrawCycle), fmt.Sprintf("update_game_draw_cycle?%s", callbackDataQueryString)),
 		),
 		inlineKeyboardButtons,
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔍查询用户信息", fmt.Sprintf("query_chat_group_user?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData("🖊️修改用户积分", fmt.Sprintf("update_chat_group_user_balance?%s", callbackDataQueryString)),
+		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", "admin_group"),
 		),

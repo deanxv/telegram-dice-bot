@@ -108,6 +108,11 @@ func initDB() {
 		log.Fatal("自动迁移表结构失败:", err)
 	}
 
+	err = db.AutoMigrate(&model.QuickThereBetRecord{})
+	if err != nil {
+		log.Fatal("自动迁移表结构失败:", err)
+	}
+
 	redisDB, err = database.InitRedisDB(os.Getenv(database.RedisDBConnectionString))
 	if err != nil {
 		log.Fatal("连接Redis数据库失败:", err)
