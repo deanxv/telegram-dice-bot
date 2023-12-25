@@ -41,6 +41,23 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 		log.Printf("issueNumber %s 开奖结果消息格式化异常", issueNumber)
 	}
 
+	tx := db.Begin()
+
+	// 插入开奖主表
+	record := &model.LotteryRecord{
+		ChatGroupId:  group.Id,
+		IssueNumber:  issueNumber,
+		GameplayType: enums.QuickThere.Value,
+		CreateTime:   currentTime,
+	}
+	err = record.Create(tx)
+	if err != nil {
+		log.Printf("开奖记录插入异常 group.Id %v issueNumber %v", group.Id, issueNumber)
+		tx.Rollback()
+		return "", err
+	}
+
+	// 插入快三开奖表
 	lotteryRecord := &model.QuickThereLotteryRecord{
 		ChatGroupId:  group.Id,
 		IssueNumber:  issueNumber,
@@ -53,10 +70,18 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 		Triplet:      triplet,
 		CreateTime:   currentTime,
 	}
-	err = lotteryRecord.Create(db)
+
+	err = lotteryRecord.Create(tx)
 	if err != nil {
 		log.Printf("开奖记录插入异常 group.Id %v issueNumber %v", group.Id, issueNumber)
+		tx.Rollback()
 		return "", err
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		// 提交事务时出现异常，回滚事务
+		tx.Rollback()
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(

@@ -49,6 +49,9 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		} else if strings.HasPrefix(callbackQuery.Data, "update_chat_group_user_balance?") {
 			// 修改用户积分
 			updateChatGroupUserBalance(bot, callbackQuery)
+		} else if callbackQuery.Data == "joined_group" {
+			// 群内联键盘 查看开奖历史
+			joinedGroupCallBack(bot, callbackQuery)
 		}
 	}
 }

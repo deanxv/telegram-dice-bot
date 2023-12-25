@@ -15,6 +15,35 @@ import (
 	"time"
 )
 
+func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+
+	chatId := message.Chat.ID
+	user := message.From
+
+	chatMember, err := getChatMember(bot, chatId, user.ID)
+	if err != nil {
+		log.Println("获取聊天成员异常:", err)
+		return
+	}
+
+	switch message.Command() {
+	case "reload":
+		if chatMember.IsAdministrator() || chatMember.IsCreator() {
+			handleGroupReloadCommand(bot, message)
+		}
+	case "register":
+		handleRegisterCommand(bot, message)
+	case "sign":
+		handleSignCommand(bot, message)
+	case "my":
+		handleMyCommand(bot, message)
+		//case "help":
+		//	handleHelpCommand(bot, message)
+		//case "myhistory":
+		//	handleMyhistoryCommand(bot, message)
+	}
+}
+
 func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 检查是否有新成员加入
 	if message != nil && message.NewChatMembers != nil {
@@ -269,35 +298,6 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 		}
 
 		return true, nil
-	}
-}
-
-func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
-
-	chatId := message.Chat.ID
-	user := message.From
-
-	chatMember, err := getChatMember(bot, chatId, user.ID)
-	if err != nil {
-		log.Println("获取聊天成员异常:", err)
-		return
-	}
-
-	switch message.Command() {
-	case "reload":
-		if chatMember.IsAdministrator() || chatMember.IsCreator() {
-			handleGroupReloadCommand(bot, message)
-		}
-	case "register":
-		handleRegisterCommand(bot, message)
-	case "sign":
-		handleSignCommand(bot, message)
-	case "my":
-		handleMyCommand(bot, message)
-		//case "help":
-		//	handleHelpCommand(bot, message)
-		//case "myhistory":
-		//	handleMyhistoryCommand(bot, message)
 	}
 }
 
