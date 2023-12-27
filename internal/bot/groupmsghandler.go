@@ -37,11 +37,15 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		handleSignCommand(bot, message)
 	case "my":
 		handleMyCommand(bot, message)
+	case "myhistory":
+		handleMyHistoryCommand(bot, message)
 		//case "help":
 		//	handleHelpCommand(bot, message)
-		//case "myhistory":
-		//	handleMyhistoryCommand(bot, message)
 	}
+}
+
+func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+
 }
 
 func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
@@ -212,7 +216,7 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	return b, nil
 }
 
-func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, message *tgbotapi.Message, betRecord *model.QuickThereBetRecord) (bool, error) {
+func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, message *tgbotapi.Message, quickThereBetRecord *model.QuickThereBetRecord) (bool, error) {
 	user := message.From
 	messageId := message.MessageID
 	chatId := message.Chat.ID
@@ -223,13 +227,15 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 	userLock.Lock()
 	defer userLock.Unlock()
 
+	tx := db.Begin()
+
 	// 查询该群用户信息
 	chatGroupUserQuery := &model.ChatGroupUser{
 		TgUserId:    user.ID,
 		ChatGroupId: chatGroup.Id,
 	}
 
-	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
+	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(tx)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 用户不存在，发送注册提示
 		registrationMsg := tgbotapi.NewMessage(chatId, "您还未注册，使用 /register 进行注册。")
@@ -246,7 +252,7 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 		return false, err
 	} else {
 		// 检查用户余额是否足够
-		if chatGroupUser.Balance < betRecord.BetAmount {
+		if chatGroupUser.Balance < quickThereBetRecord.BetAmount {
 			// 用户不存在，发送注册提示
 			balanceInsufficientMsg := tgbotapi.NewMessage(chatId, "您的余额不足!")
 			balanceInsufficientMsg.ReplyToMessageID = messageId
@@ -261,40 +267,76 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 		}
 
 		// 扣除用户余额
-		chatGroupUser.Balance -= betRecord.BetAmount
-		result := db.Save(&chatGroupUser)
+		chatGroupUser.Balance -= quickThereBetRecord.BetAmount
+		result := tx.Save(&chatGroupUser)
 		if result.Error != nil {
 			log.Println("扣除用户余额异常:", result.Error)
+			tx.Rollback()
 			return false, result.Error
 		}
 		currentTime := time.Now().Format("2006-01-02 15:04:05")
 
 		// 映射下注类型
-		betType, b := enums.GetGameLotteryTypeForName(betRecord.BetType)
+		betType, b := enums.GetGameLotteryTypeForName(quickThereBetRecord.BetType)
 		if !b {
-			log.Printf("该下注类型映射异常 betType %s", betRecord.BetType)
+			log.Printf("该下注类型映射异常 betType %s", quickThereBetRecord.BetType)
 			return false, errors.New("该下注类型映射异常")
 		}
 
+		id, err := utils.NextID()
+		if err != nil {
+			log.Println("SnowFlakeId create error")
+			return false, err
+		}
+
 		// 保存下注记录
-		betRecordCreate := &model.QuickThereBetRecord{
+		betRecord := &model.BetRecord{
+			Id:              id,
 			ChatGroupUserId: chatGroupUser.Id,
 			ChatGroupId:     chatGroup.Id,
-			IssueNumber:     betRecord.IssueNumber,
+			GameplayType:    chatGroup.GameplayType,
+			IssueNumber:     quickThereBetRecord.IssueNumber,
+			UpdateTime:      currentTime,
+			CreateTime:      currentTime,
+		}
+
+		err = betRecord.Create(tx)
+		if err != nil {
+			log.Println("保存下注记录异常:", err)
+			// 如果保存下注记录失败，需要返还用户余额
+			chatGroupUser.Balance += quickThereBetRecord.BetAmount
+			tx.Save(&user)
+			tx.Rollback()
+			return false, err
+		}
+
+		// 保存快三下注记录
+		quickThereBetRecordCreate := &model.QuickThereBetRecord{
+			Id:              id,
+			ChatGroupUserId: chatGroupUser.Id,
+			ChatGroupId:     chatGroup.Id,
+			IssueNumber:     quickThereBetRecord.IssueNumber,
 			BetType:         betType.Value,
-			BetAmount:       betRecord.BetAmount,
+			BetAmount:       quickThereBetRecord.BetAmount,
 			SettleStatus:    enums.Unsettled.Value,
 			UpdateTime:      currentTime,
 			CreateTime:      currentTime,
 		}
 
-		err := betRecordCreate.Create(db)
+		err = quickThereBetRecordCreate.Create(tx)
 		if err != nil {
-			log.Println("保存下注记录异常:", result.Error)
+			log.Println("保存快三下注记录异常:", result.Error)
 			// 如果保存下注记录失败，需要返还用户余额
-			chatGroupUser.Balance += betRecord.BetAmount
-			db.Save(&user)
+			chatGroupUser.Balance += quickThereBetRecord.BetAmount
+			tx.Save(&user)
+			tx.Rollback()
 			return false, result.Error
+		}
+
+		// 提交事务
+		if err := tx.Commit().Error; err != nil {
+			// 提交事务时出现异常，回滚事务
+			tx.Rollback()
 		}
 
 		return true, nil

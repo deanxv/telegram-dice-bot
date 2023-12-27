@@ -37,3 +37,23 @@ func (c *QuickThereLotteryRecord) Create(db *gorm.DB) error {
 
 	return nil
 }
+
+func (c *QuickThereLotteryRecord) QueryByIssueNumberAndChatGroupId(db *gorm.DB) (*QuickThereLotteryRecord, error) {
+	var quickThereLotteryRecord *QuickThereLotteryRecord
+
+	result := db.Where("issue_number = ? and chat_group_id = ?", c.IssueNumber, c.ChatGroupId).First(&quickThereLotteryRecord)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return quickThereLotteryRecord, nil
+}
+
+func (c *QuickThereLotteryRecord) QueryById(db *gorm.DB) (*QuickThereLotteryRecord, error) {
+	var quickThereLotteryRecord *QuickThereLotteryRecord
+	result := db.First(&quickThereLotteryRecord, c.Id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return quickThereLotteryRecord, nil
+}

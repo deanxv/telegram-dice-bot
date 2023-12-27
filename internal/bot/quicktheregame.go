@@ -8,6 +8,7 @@ import (
 	"log"
 	"telegram-dice-bot/internal/enums"
 	"telegram-dice-bot/internal/model"
+	"telegram-dice-bot/internal/utils"
 	"time"
 )
 
@@ -43,8 +44,15 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 
 	tx := db.Begin()
 
+	id, err := utils.NextID()
+	if err != nil {
+		log.Println("SnowFlakeId create error")
+		return "", err
+	}
+
 	// 插入开奖主表
 	record := &model.LotteryRecord{
+		Id:           id,
 		ChatGroupId:  group.Id,
 		IssueNumber:  issueNumber,
 		GameplayType: enums.QuickThere.Value,
@@ -59,6 +67,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 
 	// 插入快三开奖表
 	lotteryRecord := &model.QuickThereLotteryRecord{
+		Id:           id,
 		ChatGroupId:  group.Id,
 		IssueNumber:  issueNumber,
 		ValueA:       diceValues[0],
@@ -86,7 +95,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("开奖历史", "betting_history"),
+			tgbotapi.NewInlineKeyboardButtonData("开奖历史", "lottery_history"),
 		),
 	)
 
@@ -294,7 +303,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 
 	// 消息提醒
 	sendMsg := tgbotapi.NewMessage(chatGroupUser.TgUserId,
-		fmt.Sprintf("您在第【%s】第【%s】期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%v。",
+		fmt.Sprintf("您在第【%s】第%s期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%v。",
 			ChatGroup.TgChatGroupTitle,
 			betRecord.IssueNumber,
 			betRecord.BetAmount,

@@ -85,10 +85,10 @@ func (c *ChatGroup) UpdateChatGroupStatusById(db *gorm.DB) error {
 	return nil
 }
 
-func (c *ChatGroup) QueryByGameplayStatus(db *gorm.DB) ([]*ChatGroup, error) {
+func (c *ChatGroup) ListByGameplayStatus(db *gorm.DB) ([]*ChatGroup, error) {
 	var chatGroups []*ChatGroup
 
-	result := db.Where("gameplay_status = ?", c.GameplayStatus).Find(&chatGroups)
+	result := db.Where("gameplay_status = ? and chat_group_status = 'NORMAL'", c.GameplayStatus).Find(&chatGroups)
 	if result.Error != nil {
 		return nil, result.Error
 	}

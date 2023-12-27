@@ -9,7 +9,7 @@ import (
 type QuickThereBetRecord struct {
 	Id              string  `json:"id" gorm:"type:varchar(64);not null;primaryKey"`
 	ChatGroupUserId string  `json:"chat_group_user_id" gorm:"type:varchar(64);not null"` // 用户ID
-	ChatGroupId     string  `json:"chat_group_id" gorm:"type:varchar(64);not null;index"`
+	ChatGroupId     string  `json:"chat_group_id" gorm:"type:varchar(64);not null;"`
 	IssueNumber     string  `json:"issue_number" gorm:"type:varchar(64);not null"`
 	BetType         string  `json:"bet_type" gorm:"type:varchar(64);not null"`        // 下注类型
 	BetAmount       float64 `json:"bet_amount" gorm:"type:decimal(20, 2);not null"`   // 下注金额

@@ -11,6 +11,7 @@ import (
 	"telegram-dice-bot/internal/enums"
 	"telegram-dice-bot/internal/model"
 	"telegram-dice-bot/internal/utils"
+	"time"
 )
 
 // handleCallbackQuery 处理回调查询。
@@ -49,11 +50,87 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		} else if strings.HasPrefix(callbackQuery.Data, "update_chat_group_user_balance?") {
 			// 修改用户积分
 			updateChatGroupUserBalance(bot, callbackQuery)
-		} else if callbackQuery.Data == "joined_group" {
+		}
+	} else if callbackQuery.Message.Chat.IsGroup() || callbackQuery.Message.Chat.IsSuperGroup() {
+		if callbackQuery.Data == "lottery_history" {
 			// 群内联键盘 查看开奖历史
-			joinedGroupCallBack(bot, callbackQuery)
+			lotteryHistoryCallBack(bot, callbackQuery)
 		}
 	}
+}
+
+func lotteryHistoryCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	tgChatGroupId := query.Message.Chat.ID
+
+	// 查询该群历史开奖信息
+	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
+	if err != nil {
+		log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(tgChatGroupId, "")
+
+	lotteryRecord := &model.LotteryRecord{ChatGroupId: chatGroup.Id}
+	lotteryRecords, err := lotteryRecord.ListByChatGroupId(db)
+	if err != nil {
+		log.Printf("TgChatGroupId %v 开奖记录查询异常", chatGroup.Id)
+		return
+	}
+	if len(lotteryRecords) == 0 {
+		sendMsg.Text = "暂无开奖记录"
+	} else {
+		sendMsg.Text = "近10期开奖记录:\n"
+		for _, record := range lotteryRecords {
+			// 开奖类型查询开奖信息
+			switch record.GameplayType {
+			case enums.QuickThere.Value:
+				quickThereLotteryRecord := &model.QuickThereLotteryRecord{
+					Id: record.Id,
+				}
+				quickThereLotteryRecord, err := quickThereLotteryRecord.QueryById(db)
+				if err != nil {
+					log.Printf("IssueNumber %v 快三开奖记录查询异常", record.IssueNumber)
+					return
+				}
+
+				bigSmall, _ := enums.GetGameLotteryType(quickThereLotteryRecord.BigSmall)
+				singleDouble, _ := enums.GetGameLotteryType(quickThereLotteryRecord.SingleDouble)
+
+				triplet := ""
+				if quickThereLotteryRecord.Triplet == 1 {
+					triplet = "【豹子】"
+				}
+
+				sendMsg.Text += fmt.Sprintf("%s期 %s %d+%d+%d=%d %s %s %s\n",
+					quickThereLotteryRecord.IssueNumber,
+					"快三",
+					quickThereLotteryRecord.ValueA,
+					quickThereLotteryRecord.ValueB,
+					quickThereLotteryRecord.ValueC,
+					quickThereLotteryRecord.ValueA+quickThereLotteryRecord.ValueB+quickThereLotteryRecord.ValueC,
+					bigSmall.Name,
+					singleDouble.Name,
+					triplet,
+				)
+			}
+		}
+	}
+	sentMsg, err := sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, tgChatGroupId)
+		return
+	}
+
+	go func(messageID int) {
+		time.Sleep(1 * time.Minute)
+		deleteMsg := tgbotapi.NewDeleteMessage(tgChatGroupId, messageID)
+		_, err := bot.Request(deleteMsg)
+		if err != nil {
+			log.Println("删除消息异常:", err)
+		}
+	}(sentMsg.MessageID)
 }
 
 func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {

@@ -48,7 +48,11 @@ func initGameTask(bot *tgbotapi.BotAPI) {
 		GameplayStatus: enums.GameplayStatusON.Value,
 	}
 
-	chatGroups, err := chatGroup.QueryByGameplayStatus(db)
+	chatGroups, err := chatGroup.ListByGameplayStatus(db)
+	if len(chatGroups) == 0 {
+		log.Println("暂无可开启的群配置")
+		return
+	}
 	if err != nil {
 		log.Fatal("初始化任务失败:", err)
 	}
@@ -114,6 +118,11 @@ func initDB() {
 	}
 
 	err = db.AutoMigrate(&model.LotteryRecord{})
+	if err != nil {
+		log.Fatal("自动迁移表结构失败:", err)
+	}
+
+	err = db.AutoMigrate(&model.BetRecord{})
 	if err != nil {
 		log.Fatal("自动迁移表结构失败:", err)
 	}

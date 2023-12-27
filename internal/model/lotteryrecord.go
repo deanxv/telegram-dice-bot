@@ -31,3 +31,14 @@ func (c *LotteryRecord) Create(db *gorm.DB) error {
 
 	return nil
 }
+
+func (c *LotteryRecord) ListByChatGroupId(db *gorm.DB) ([]*LotteryRecord, error) {
+	var lotteryRecords []*LotteryRecord
+
+	result := db.Where("chat_group_id = ?", c.ChatGroupId).Order("issue_number desc").Limit(10).Find(&lotteryRecords)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return lotteryRecords, nil
+}
