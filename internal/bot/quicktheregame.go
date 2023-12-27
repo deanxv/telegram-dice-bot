@@ -95,7 +95,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("开奖历史", "lottery_history"),
+			tgbotapi.NewInlineKeyboardButtonData("开奖历史", enums.CallbackLotteryHistory.Value),
 		),
 	)
 
@@ -261,16 +261,19 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 	var betResultTypeName string
 	if betRecord.BetType == lotteryRecord.SingleDouble ||
 		betRecord.BetType == lotteryRecord.BigSmall {
+		betRecord.BetResultAmount = fmt.Sprintf("+%.2f", betRecord.BetAmount*quickThereConfig.SimpleOdds)
 		chatGroupUser.Balance += betRecord.BetAmount * quickThereConfig.SimpleOdds
 		betResultType := 1
 		betResultTypeName = "赢"
 		betRecord.BetResultType = &betResultType
 	} else if betRecord.BetType == enums.Triplet.Value && lotteryRecord.Triplet == 1 {
+		betRecord.BetResultAmount = fmt.Sprintf("+%.2f", betRecord.BetAmount*quickThereConfig.SimpleOdds)
 		chatGroupUser.Balance += betRecord.BetAmount * quickThereConfig.TripletOdds
 		betResultType := 1
 		betResultTypeName = "赢"
 		betRecord.BetResultType = &betResultType
 	} else {
+		betRecord.BetResultAmount = fmt.Sprintf("-%.2f", betRecord.BetAmount*quickThereConfig.SimpleOdds)
 		betResultType := 0
 		betResultTypeName = "输"
 		betRecord.BetResultType = &betResultType
@@ -303,7 +306,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 
 	// 消息提醒
 	sendMsg := tgbotapi.NewMessage(chatGroupUser.TgUserId,
-		fmt.Sprintf("您在第【%s】第%s期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%v。",
+		fmt.Sprintf("您在第【%s】第%s期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%.2f。",
 			ChatGroup.TgChatGroupTitle,
 			betRecord.IssueNumber,
 			betRecord.BetAmount,

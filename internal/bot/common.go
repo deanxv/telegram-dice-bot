@@ -64,13 +64,13 @@ func getChatMember(bot *tgbotapi.BotAPI, chatID int64, userId int64) (tgbotapi.C
 func buildDefaultInlineKeyboardMarkup(bot *tgbotapi.BotAPI) *tgbotapi.InlineKeyboardMarkup {
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("👨🏻‍💼我加入的群", "joined_group"),
-			tgbotapi.NewInlineKeyboardButtonData("👮🏻‍♂️我管理的群", "admin_group")),
+			tgbotapi.NewInlineKeyboardButtonData("👨🏻‍💼我加入的群", enums.CallbackJoinedGroup.Value),
+			tgbotapi.NewInlineKeyboardButtonData("👮🏻‍♂️我管理的群", enums.CallbackAdminGroup.Value)),
 	)
 	return &newInlineKeyboardMarkup
 }
 
-func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup) ([]tgbotapi.InlineKeyboardButton, error) {
+func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup, callbackDataQueryString string) ([]tgbotapi.InlineKeyboardButton, error) {
 
 	var inlineKeyboardButton []tgbotapi.InlineKeyboardButton
 	if chatGroup.GameplayType == enums.QuickThere.Value {
@@ -80,10 +80,9 @@ func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup) ([]tgbo
 		if err != nil {
 			return nil, err
 		}
-
 		inlineKeyboardButton = tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️简易倍率: %v 倍", quickThereConfig.SimpleOdds), "simple_odds_update"),
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️豹子倍率: %v 倍", quickThereConfig.TripletOdds), "triplet_odds_update"),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️简易倍率: %v 倍", quickThereConfig.SimpleOdds), fmt.Sprintf("update_q_t_simple_odds?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️豹子倍率: %v 倍", quickThereConfig.TripletOdds), fmt.Sprintf("update_q_t_triplet_odds?%s", callbackDataQueryString)),
 		)
 	}
 
@@ -100,7 +99,7 @@ func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessage
 
 	inlineKeyboardRows = append(inlineKeyboardRows,
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("➕点击添加新的群组", fmt.Sprintf("add_admin_group")),
+			tgbotapi.NewInlineKeyboardButtonData("➕点击添加新的群组", enums.CallbackAddAdminGroup.Value),
 		),
 	)
 
@@ -145,7 +144,7 @@ func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessage
 	}
 	inlineKeyboardRows = append(inlineKeyboardRows,
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", fmt.Sprintf("main_menu")),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackMainMenu.Value),
 		),
 	)
 
@@ -288,25 +287,15 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 
 	chatId := query.Message.Chat.ID
 
-	inlineKeyboardButtons, err := buildGameplayConfigInlineKeyboardButton(chatGroup)
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v 未查询到该群的配置信息 ", chatGroup.Id)
-		return nil, err
-	} else if err != nil {
-		log.Printf("chatGroupId %v 该群的配置信息查询异常 %s", chatId, err.Error())
-		return nil, err
-	}
-
 	gameplayType, b := enums.GetGameplayType(chatGroup.GameplayType)
 	if !b {
-		log.Printf("GameplayType %v 群配置玩法查询异常 err %s", chatGroup.GameplayType, err.Error())
-		return nil, err
+		log.Printf("GameplayType %v 群配置玩法查询异常", chatGroup.GameplayType)
+		return nil, errors.New("群配置玩法查询异常")
 	}
 	gameplayStatus, b := enums.GetGameplayStatus(chatGroup.GameplayStatus)
 	if !b {
-		log.Printf("游戏开关查询异常: %s", chatGroup.GameplayStatus)
-		return nil, err
+		log.Printf("GameplayStatus %v 群配置玩法查询异常", chatGroup.GameplayStatus)
+		return nil, errors.New("群配置游戏状态查询异常")
 	}
 
 	// 重新生成内联键盘回调key
@@ -323,6 +312,16 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 		"callbackDataKey": callbackDataKey,
 	})
 
+	inlineKeyboardButtons, err := buildGameplayConfigInlineKeyboardButton(chatGroup, callbackDataQueryString)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v 未查询到该群的配置信息 ", chatGroup.Id)
+		return nil, err
+	} else if err != nil {
+		log.Printf("chatGroupId %v 该群的配置信息查询异常 %s", chatId, err.Error())
+		return nil, err
+	}
+
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🛠️当前玩法:【%s】", gameplayType.Name), fmt.Sprintf("gameplay_type?%s", callbackDataQueryString)),
@@ -337,7 +336,7 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 			tgbotapi.NewInlineKeyboardButtonData("🖊️修改用户积分", fmt.Sprintf("update_chat_group_user_balance?%s", callbackDataQueryString)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", "admin_group"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackAdminGroup.Value),
 		),
 	)
 	return &newInlineKeyboardMarkup, nil

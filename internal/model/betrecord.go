@@ -33,3 +33,14 @@ func (c *BetRecord) Create(db *gorm.DB) error {
 
 	return nil
 }
+
+func (c *BetRecord) ListByChatGroupUserId(db *gorm.DB) ([]*BetRecord, error) {
+	var betRecords []*BetRecord
+
+	result := db.Where("chat_group_user_id = ?", c.ChatGroupUserId).Order("issue_number desc").Limit(10).Find(&betRecords)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return betRecords, nil
+}

@@ -45,7 +45,90 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 }
 
 func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+	fromUser := message.From
+	messageId := message.MessageID
+	chatId := message.Chat.ID
 
+	chatGroupUserQuery := &model.ChatGroupUser{
+		// 查询用户信息
+		TgUserId: fromUser.ID,
+	}
+
+	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserId(db)
+	if err != nil {
+		log.Printf("查询异常 err %s", err.Error())
+		return
+	}
+	// 查询下注记录
+
+	betRecord := &model.BetRecord{ChatGroupUserId: chatGroupUser.Id}
+	betRecords, err := betRecord.ListByChatGroupUserId(db)
+	if err != nil {
+		log.Printf("查询下注记录 err %s", err.Error())
+		return
+	}
+	sendMsg := tgbotapi.NewMessage(chatId, "")
+	sendMsg.ReplyToMessageID = messageId
+
+	if len(betRecords) == 0 {
+		// 下注记录为空
+		sendMsg.Text = "您还没有下注记录哦!"
+	} else if err != nil {
+		log.Println("查询下注记录异常", err)
+		return
+	} else {
+		sendMsg.Text = "您的近10期下注记录如下:\n"
+
+		for _, record := range betRecords {
+			// 开奖类型查询开奖信息
+			switch record.GameplayType {
+			case enums.QuickThere.Value:
+
+				quickThereBetRecord := &model.QuickThereBetRecord{
+					Id: record.Id,
+				}
+				quickThereBetRecord, err := quickThereBetRecord.QueryById(db)
+				if err != nil {
+					log.Printf("RecordId %v 快三下注记录查询异常", record.Id)
+					return
+				}
+
+				betType, _ := enums.GetGameLotteryType(quickThereBetRecord.BetType)
+
+				betResultTypeName := "「未开奖」"
+
+				if quickThereBetRecord.BetResultType != nil {
+					betType, _ := enums.GetBetResultType(*quickThereBetRecord.BetResultType)
+					betResultTypeName = betType.Name
+				}
+
+				sendMsg.Text += fmt.Sprintf("%s期 %s %s %v %s %v \n",
+					record.IssueNumber,
+					"快三",
+					betType.Name,
+					quickThereBetRecord.BetAmount,
+					betResultTypeName,
+					quickThereBetRecord.BetResultAmount,
+				)
+			}
+		}
+
+		sentMsg, err := sendMessage(bot, &sendMsg)
+		if err != nil {
+			blockedOrKicked(err, chatId)
+			return
+		}
+		go func(messageID int) {
+			time.Sleep(1 * time.Minute)
+			deleteMsg := tgbotapi.NewDeleteMessage(chatId, messageID)
+			_, err := bot.Request(deleteMsg)
+			if err != nil {
+				log.Println("删除消息异常:", err)
+			}
+		}(sentMsg.MessageID)
+
+		return
+	}
 }
 
 func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
@@ -374,7 +457,7 @@ func handleMyCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	} else if err != nil {
 		log.Printf("查询异常 err %s", err.Error())
 	} else {
-		msgConfig := tgbotapi.NewMessage(tgChatGroupId, fmt.Sprintf("%s 您的积分余额为%v", fromUser.FirstName, chatGroupUser.Balance))
+		msgConfig := tgbotapi.NewMessage(tgChatGroupId, fmt.Sprintf("%s 您的积分余额为%.2f", fromUser.FirstName, chatGroupUser.Balance))
 		msgConfig.ReplyToMessageID = messageId
 		sentMsg, err := sendMessage(bot, &msgConfig)
 		if err != nil {

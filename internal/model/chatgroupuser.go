@@ -42,6 +42,15 @@ func (c *ChatGroupUser) QueryByTgUserIdAndChatGroupId(db *gorm.DB) (*ChatGroupUs
 	return chatGroupUser, nil
 }
 
+func (c *ChatGroupUser) QueryByTgUserId(db *gorm.DB) (*ChatGroupUser, error) {
+	var chatGroupUser *ChatGroupUser
+	result := db.Where("tg_user_id = ?", c.TgUserId).First(&chatGroupUser)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return chatGroupUser, nil
+}
+
 func (c *ChatGroupUser) QueryByUsernameAndChatGroupId(db *gorm.DB) (*ChatGroupUser, error) {
 	var chatGroupUser *ChatGroupUser
 	result := db.Where("username = ? AND chat_group_id = ?", c.Username, c.ChatGroupId).First(&chatGroupUser)

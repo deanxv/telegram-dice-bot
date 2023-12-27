@@ -17,45 +17,153 @@ import (
 // handleCallbackQuery 处理回调查询。
 func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQuery) {
 	if callbackQuery.Message.Chat.IsPrivate() {
-		if callbackQuery.Data == "main_menu" {
+		if callbackQuery.Data == enums.CallbackMainMenu.Value {
 			mainMenuCallBack(bot, callbackQuery)
-		} else if callbackQuery.Data == "joined_group" {
+		} else if callbackQuery.Data == enums.CallbackJoinedGroup.Value {
 			joinedGroupCallBack(bot, callbackQuery)
-		} else if callbackQuery.Data == "admin_group" {
+		} else if callbackQuery.Data == enums.CallbackAdminGroup.Value {
 			adminGroupCallBack(bot, callbackQuery)
-		} else if callbackQuery.Data == "add_admin_group" {
+		} else if callbackQuery.Data == enums.CallbackAddAdminGroup.Value {
 			addAdminGroupCallBack(bot, callbackQuery)
-		} else if callbackQuery.Data == "already_invited" {
+		} else if callbackQuery.Data == enums.CallbackAlreadyInvited.Value {
 			alreadyInvitedCallBack(bot, callbackQuery)
-		} else if callbackQuery.Data == "already_reload" {
+		} else if callbackQuery.Data == enums.CallbackAlreadyReload.Value {
 			alreadyReloadCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "chat_group_config?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackChatGroupConfig.Value) {
 			// 群配置
 			chatGroupCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "gameplay_type?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackGameplayType.Value) {
 			// 群配置-游戏类型
 			GameplayTypeCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "update_gameplay_type?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateGameplayType.Value) {
 			// 群配置-更新游戏类型
 			updateGameplayTypeCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "update_gameplay_status?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateQuickThereSimpleOdds.Value) {
+			// 群配置-更新快三-简易赔率
+			updateQuickThereSimpleOddsCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateQuickThereTripletOdds.Value) {
+			// 群配置-更新快三-豹子赔率
+			updateQuickThereTripletOddsCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateGameplayStatus.Value) {
 			// 群配置-更新游戏状态
 			updateGameplayStatusCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "update_game_draw_cycle?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateGameDrawCycle.Value) {
 			// 群配置-更新游戏开奖周期
 			updateGameDrawCycleCallBack(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "query_chat_group_user?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackQueryChatGroupUser.Value) {
 			// 查询用户信息
 			queryChatGroupUser(bot, callbackQuery)
-		} else if strings.HasPrefix(callbackQuery.Data, "update_chat_group_user_balance?") {
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateChatGroupUserBalance.Value) {
 			// 修改用户积分
 			updateChatGroupUserBalance(bot, callbackQuery)
 		}
 	} else if callbackQuery.Message.Chat.IsGroup() || callbackQuery.Message.Chat.IsSuperGroup() {
-		if callbackQuery.Data == "lottery_history" {
+		if callbackQuery.Data == enums.CallbackLotteryHistory.Value {
 			// 群内联键盘 查看开奖历史
 			lotteryHistoryCallBack(bot, callbackQuery)
 		}
+	}
+}
+
+func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	chatId := query.Message.Chat.ID
+	fromUser := query.From
+
+	// 查询当前群配置的游戏类型
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateQuickThereTripletOdds.Value)+len(enums.CallbackUpdateQuickThereTripletOdds.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 校验当前对话人是否为该群管理员
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, "请输入️要设置的【经典快三】豹子倍率:")
+
+	// 设置当前机器人状态
+	err = PrivateChatCacheAddRedis(fromUser.ID, &common.BotPrivateChatCache{
+		ChatStatus:  enums.WaitQuickThereTripletOdds.Value,
+		ChatGroupId: chatGroupId,
+	})
+
+	if err != nil {
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitQuickThereTripletOdds.Value)
+		return
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
+	}
+}
+
+func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	chatId := query.Message.Chat.ID
+	fromUser := query.From
+
+	// 查询当前群配置的游戏类型
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateQuickThereSimpleOdds.Value)+len(enums.CallbackUpdateQuickThereSimpleOdds.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 校验当前对话人是否为该群管理员
+	err = checkGroupAdmin(chatGroupId, fromUser.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, "请输入️要设置的【经典快三】简易倍率(大/小/单/双):")
+
+	// 设置当前机器人状态
+	err = PrivateChatCacheAddRedis(fromUser.ID, &common.BotPrivateChatCache{
+		ChatStatus:  enums.WaitQuickThereSimpleOdds.Value,
+		ChatGroupId: chatGroupId,
+	})
+
+	if err != nil {
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitQuickThereSimpleOdds.Value)
+		return
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
 	}
 }
 
@@ -137,7 +245,7 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	chatId := query.Message.Chat.ID
 	fromUser := query.From
 
-	queryString := query.Data[strings.Index(query.Data, "update_chat_group_user_balance?")+len("update_chat_group_user_balance?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateChatGroupUserBalance.Value)+len(enums.CallbackUpdateChatGroupUserBalance.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -191,7 +299,7 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatId := query.Message.Chat.ID
 	fromUser := query.From
 
-	queryString := query.Data[strings.Index(query.Data, "query_chat_group_user?")+len("query_chat_group_user?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackQueryChatGroupUser.Value)+len(enums.CallbackQueryChatGroupUser.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -242,7 +350,7 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 	fromUser := query.From
 
 	// 查询当前群配置的游戏类型
-	queryString := query.Data[strings.Index(query.Data, "update_game_draw_cycle?")+len("update_game_draw_cycle?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateGameDrawCycle.Value)+len(enums.CallbackUpdateGameDrawCycle.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -294,7 +402,7 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 	fromUser := query.From
 
 	// 查询使用的chatGroupId为内联键盘中的Data
-	queryString := query.Data[strings.Index(query.Data, "update_gameplay_status?")+len("update_gameplay_status?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateGameplayStatus.Value)+len(enums.CallbackUpdateGameplayStatus.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -380,7 +488,7 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	messageId := query.Message.MessageID
 
 	// 查询当前群配置的游戏类型
-	queryString := query.Data[strings.Index(query.Data, "update_gameplay_type?")+len("update_gameplay_type?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackUpdateGameplayType.Value)+len(enums.CallbackUpdateGameplayType.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -442,7 +550,7 @@ func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	messageId := query.Message.MessageID
 
 	// 查询当前群配置的游戏类型
-	queryString := query.Data[strings.Index(query.Data, "gameplay_type?")+len("gameplay_type?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackGameplayType.Value)+len(enums.CallbackGameplayType.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -496,7 +604,7 @@ func chatGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	fromUser := query.From
 
 	// 查询使用的chatGroupId为内联键盘中的Data
-	queryString := query.Data[strings.Index(query.Data, "chat_group_config?")+len("chat_group_config?"):]
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackChatGroupConfig.Value)+len(enums.CallbackChatGroupConfig.Value):]
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
@@ -582,7 +690,7 @@ func addAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 			tgbotapi.NewInlineKeyboardButtonURL("➕点击添加➕", inviteBotLink),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", "already_invited"),
+			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", enums.CallbackAlreadyInvited.Value),
 		),
 	)
 	sendMsg.ReplyMarkup = &newInlineKeyboardMarkup
@@ -621,7 +729,7 @@ func alreadyReloadCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, "接下来就可以使用啦!")
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", "admin_group"),
+			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", enums.CallbackAdminGroup.Value),
 		),
 	)
 
@@ -640,7 +748,7 @@ func alreadyInvitedCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, "请在【群组】中发送 /reload 重新加载!")
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", "already_reload"),
+			tgbotapi.NewInlineKeyboardButtonData("✅好了✅", enums.CallbackAlreadyReload.Value),
 		),
 	)
 	sendMsg.ReplyMarkup = &newInlineKeyboardMarkup

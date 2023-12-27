@@ -67,6 +67,12 @@ func handlePrivateText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		if enums.WaitGameDrawCycle.Value == botPrivateChatCache.ChatStatus {
 			// 开奖周期设置
 			updateGameDrawCycle(bot, message, &botPrivateChatCache)
+		} else if enums.WaitQuickThereSimpleOdds.Value == botPrivateChatCache.ChatStatus {
+			// 快三简易倍率设置
+			updateQuickThereSimpleOdds(bot, message, &botPrivateChatCache)
+		} else if enums.WaitQuickThereTripletOdds.Value == botPrivateChatCache.ChatStatus {
+			// 快三豹子倍率设置
+			updateQuickThereTripletOdds(bot, message, &botPrivateChatCache)
 		} else if enums.WaitQueryUser.Value == botPrivateChatCache.ChatStatus {
 			// 查询用户信息
 			queryUser(bot, message, &botPrivateChatCache)
@@ -76,6 +82,94 @@ func handlePrivateText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		}
 
 	}
+}
+
+func updateQuickThereTripletOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCache *common.BotPrivateChatCache) {
+	text := message.Text
+	tgUserId := message.From.ID
+	chatId := message.Chat.ID
+	messageId := message.MessageID
+
+	// 校验当前对话人是否为该群管理员
+	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		return
+	}
+
+	// 将字符串转换为float64
+	tripletOdds, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	quickThereConfig := &model.QuickThereConfig{
+		ChatGroupId: botPrivateChatCache.ChatGroupId,
+		TripletOdds: tripletOdds,
+	}
+
+	err = quickThereConfig.UpdateTripletOddsByChatGroupId(db)
+	if err != nil {
+		log.Printf("设置快三豹子倍率异常 %s", err.Error())
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, fmt.Sprintf("设置成功!\n【经典快三】豹子倍率已设置为%.2f倍!", tripletOdds))
+	sendMsg.ReplyToMessageID = messageId
+
+	_, err = sendMessage(bot, &sendMsg)
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
+	}
+	// 删除bot与当前对话人的cache
+	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, tgUserId)
+	redisDB.Del(redisDB.Context(), redisKey)
+}
+
+func updateQuickThereSimpleOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCache *common.BotPrivateChatCache) {
+	text := message.Text
+	tgUserId := message.From.ID
+	chatId := message.Chat.ID
+	messageId := message.MessageID
+
+	// 校验当前对话人是否为该群管理员
+	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		return
+	}
+
+	// 将字符串转换为float64
+	simpleOdds, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	quickThereConfig := &model.QuickThereConfig{
+		ChatGroupId: botPrivateChatCache.ChatGroupId,
+		SimpleOdds:  simpleOdds,
+	}
+
+	err = quickThereConfig.UpdateSimpleOddsByChatGroupId(db)
+	if err != nil {
+		log.Printf("设置快三简易倍率异常 %s", err.Error())
+		return
+	}
+
+	sendMsg := tgbotapi.NewMessage(chatId, fmt.Sprintf("设置成功!\n【经典快三】简易倍率已设置为%.2f倍!", simpleOdds))
+	sendMsg.ReplyToMessageID = messageId
+
+	_, err = sendMessage(bot, &sendMsg)
+	if err != nil {
+		blockedOrKicked(err, chatId)
+		return
+	}
+	// 删除bot与当前对话人的cache
+	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, tgUserId)
+	redisDB.Del(redisDB.Context(), redisKey)
 }
 
 func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCache *common.BotPrivateChatCache) {
@@ -244,6 +338,9 @@ func updateGameDrawCycle(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPri
 	}
 
 	if drawCycle <= 0 || drawCycle > 60 {
+		sendMsg := tgbotapi.NewMessage(chatId, "开奖周期必须大于0分钟小于60分钟哦!")
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
 		return
 	}
 

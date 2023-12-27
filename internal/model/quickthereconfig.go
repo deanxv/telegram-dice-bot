@@ -32,6 +32,22 @@ func (c *QuickThereConfig) Create(db *gorm.DB) error {
 	return nil
 }
 
+func (c *QuickThereConfig) UpdateSimpleOddsByChatGroupId(db *gorm.DB) error {
+	result := db.Model(&QuickThereConfig{}).Where("chat_group_id = ?", c.ChatGroupId).Update("simple_odds", c.SimpleOdds)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+func (c *QuickThereConfig) UpdateTripletOddsByChatGroupId(db *gorm.DB) error {
+	result := db.Model(&QuickThereConfig{}).Where("chat_group_id = ?", c.ChatGroupId).Update("triplet_odds", c.TripletOdds)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 func QueryQuickThereConfigByChatGroupId(db *gorm.DB, chatGroupId string) (*QuickThereConfig, error) {
 	var QuickThereConfig *QuickThereConfig
 	result := db.Where("chat_group_id = ?", chatGroupId).First(&QuickThereConfig)
