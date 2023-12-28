@@ -17,7 +17,10 @@ func handleMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	} else {
 		// 非cmd
 		if message.Chat.IsSuperGroup() || message.Chat.IsGroup() {
+			go handleGroupMigrateFromChatID(bot, message)
+			go handleGroupNewChatTitle(bot, message)
 			go handleGroupNewMembers(bot, message)
+			go handleGroupLeftChatMember(message)
 			go handleGroupText(bot, message)
 		} else if message.Chat.IsPrivate() {
 			handlePrivateText(bot, message)

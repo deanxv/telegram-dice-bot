@@ -273,7 +273,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 		betResultTypeName = "赢"
 		betRecord.BetResultType = &betResultType
 	} else {
-		betRecord.BetResultAmount = fmt.Sprintf("-%.2f", betRecord.BetAmount*quickThereConfig.SimpleOdds)
+		betRecord.BetResultAmount = fmt.Sprintf("-%.2f", betRecord.BetAmount)
 		betResultType := 0
 		betResultTypeName = "输"
 		betRecord.BetResultType = &betResultType

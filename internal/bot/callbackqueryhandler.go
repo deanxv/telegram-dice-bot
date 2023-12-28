@@ -682,7 +682,7 @@ func addAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	chatId := query.Message.Chat.ID
 	messageId := query.Message.MessageID
 	// 邀请bot进群链接
-	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, "点击下方按钮将机器人添加至群组并设置为管理员!")
+	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, "点击下方按钮将机器人添加至【超级群组】并设置为管理员!")
 	inviteBotLink := fmt.Sprintf("https://t.me/%s?startgroup=true", bot.Self.UserName)
 
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(

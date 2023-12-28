@@ -144,7 +144,7 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 				log.Printf("Bot was added to a group: %s", message.Chat.Title)
 				// 查找是否原来关联过该群
-				_, err := model.QueryChatGroupByTgChatId(tx, chatId)
+				chatGroup, err := model.QueryChatGroupByTgChatId(tx, chatId)
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					log.Printf("群TgChatId %v 该群未初始化过配置 ", chatId)
 
@@ -166,6 +166,11 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 						CreateTime:       time.Now().Format("2006-01-02 15:04:05"),
 					}
 					err = chatGroup.Create(tx)
+					if err != nil {
+						log.Printf("群TgChatId %v 初始化群配置异常 %s", chatId, err.Error())
+						tx.Rollback()
+						return
+					}
 
 					// 初始化快三配置
 					quickThereConfig := &model.QuickThereConfig{
@@ -176,6 +181,11 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 					}
 
 					err = quickThereConfig.Create(tx)
+					if err != nil {
+						log.Printf("群TgChatId %v 初始化快三配置异常 %s", chatId, err.Error())
+						tx.Rollback()
+						return
+					}
 
 					// 提交事务
 					if err := tx.Commit().Error; err != nil {
@@ -183,22 +193,152 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 						tx.Rollback()
 					}
 
-					if err != nil {
-						log.Printf("群TgChatId %v 初始化群配置异常 %s", chatId, err.Error())
-						return
-					}
 					log.Printf("群TgChatId %v 该群初始化配置成功 ", chatId)
 					return
 				} else if err != nil {
 					log.Printf("群TgChatId %v 查找异常 %s", chatId, err.Error())
 					return
 				} else {
+					// 更新原有配置状态为正常
+					chatGroup.ChatGroupStatus = enums.Normal.Value
+					result := db.Save(&chatGroup)
+					if result.Error != nil {
+						log.Printf("群TgChatId %v 更新原有配置异常 %s", chatId, err.Error())
+						return
+					}
 					log.Printf("群TgChatId %v 该群已被初始化过配置", chatId)
 					return
 				}
 
+			} else {
+				// 非机器人入群 则检查是否已注册
+				chatGroup, err := model.QueryChatGroupByTgChatId(db, chatId)
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					// 群未初始化则不处理
+					log.Printf("群未初始化")
+				} else if err != nil {
+					log.Printf("群TgChatId %v 查找异常 %s", chatId, err.Error())
+					return
+				} else {
+					// 群存在则判断该用户是否已注册
+					chatGroupUserQuery := &model.ChatGroupUser{
+						TgUserId:    newMember.ID,
+						ChatGroupId: chatGroup.Id,
+					}
+					chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
+
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						log.Printf("该用户未注册 err %s", err.Error())
+						return
+					} else if err != nil {
+						log.Printf("查询异常 err %s", err.Error())
+						return
+					} else {
+						// 已注册则更新状态为未离开
+						chatGroupUser.IsLeft = 0
+						db.Save(&chatGroupUser)
+					}
+				}
 			}
 		}
+	}
+}
+
+func handleGroupMigrateFromChatID(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+
+	if message.MigrateFromChatID != 0 {
+		oldGroupID := message.MigrateFromChatID
+		newSuperGroupID := message.Chat.ID
+		// 普通群组升级为超级群组
+		chatGroup, err := model.QueryChatGroupByTgChatId(db, oldGroupID)
+		if err != nil {
+			log.Printf("TgChatGroupId %v 群配置查询异常", oldGroupID)
+			return
+		}
+		chatGroup.TgChatGroupId = newSuperGroupID
+		db.Save(&chatGroup)
+		log.Printf("群组 ID 从 %d 更新为 %d", oldGroupID, newSuperGroupID)
+	}
+}
+
+func handleGroupNewChatTitle(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+
+	if message.NewChatTitle != "" {
+		newChatTitle := message.NewChatTitle
+		tgChatGroupId := message.Chat.ID
+		chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
+		if err != nil {
+			log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+			return
+		}
+		chatGroup.TgChatGroupTitle = newChatTitle
+		db.Save(&chatGroup)
+		log.Printf("群组Id %s Title 更新为 %s", chatGroup.Id, newChatTitle)
+	}
+}
+
+func handleGroupLeftChatMember(message *tgbotapi.Message) {
+	// 检查是否有人离开群组
+	if message.LeftChatMember != nil {
+		tgChatGroupId := message.Chat.ID
+		leftUser := message.LeftChatMember
+
+		tx := db.Begin()
+
+		// 查询该群的信息
+		chatGroup, err := model.QueryChatGroupByTgChatId(tx, tgChatGroupId)
+		if err != nil {
+			log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+			tx.Rollback()
+			return
+		}
+
+		// 查询该用户
+		chatGroupUserQuery := &model.ChatGroupUser{
+			TgUserId:    leftUser.ID,
+			ChatGroupId: chatGroup.Id,
+		}
+
+		chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(tx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("该用户未注册 err %s", err.Error())
+			return
+		} else if err != nil {
+			log.Printf("查询异常 err %s", err.Error())
+			return
+		}
+
+		// 更新该用户状态为离开
+		chatGroupUser.IsLeft = 1
+		result := tx.Save(&chatGroupUser)
+		if result.Error != nil {
+			log.Println("更新用户状态异常:", result.Error)
+			tx.Rollback()
+			return
+		}
+
+		chatGroupAdmin, err := model.QueryChatGroupAdminByChatGroupIdAndTgUserId(tx, chatGroup.Id, leftUser.ID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("该用户非管理员 err %s", err.Error())
+			// 提交事务
+			if err := tx.Commit().Error; err != nil {
+				// 提交事务时出现异常，回滚事务
+				tx.Rollback()
+			}
+			return
+		} else if err != nil {
+			log.Println("该用户管理员查询异常:", err)
+			tx.Rollback()
+		} else {
+			// 删除该用户的管理员权限
+			tx.Delete(&chatGroupAdmin)
+			// 提交事务
+			if err := tx.Commit().Error; err != nil {
+				// 提交事务时出现异常，回滚事务
+				tx.Rollback()
+			}
+		}
+
 	}
 }
 
@@ -289,7 +429,7 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	b, err := storeQuickThereBetRecord(bot, chatGroup, message, &model.QuickThereBetRecord{
 		IssueNumber: issueNumber,
 		BetType:     betType,
-		BetAmount:   float64(betAmount),
+		BetAmount:   betAmount,
 	})
 
 	if !b && err != nil {
@@ -351,6 +491,9 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 
 		// 扣除用户余额
 		chatGroupUser.Balance -= quickThereBetRecord.BetAmount
+		// 同步更新用户信息
+		chatGroupUser.Username = user.UserName
+
 		result := tx.Save(&chatGroupUser)
 		if result.Error != nil {
 			log.Println("扣除用户余额异常:", result.Error)
@@ -568,6 +711,7 @@ func handleRegisterCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			TgUserId:    fromUser.ID,
 			ChatGroupId: chatGroup.Id,
 			Username:    fromUser.UserName,
+			IsLeft:      0,
 			Balance:     1000,
 			CreateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		}
@@ -632,6 +776,7 @@ func handleGroupReloadCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		err := model.CreateChatGroupAdmin(tx, &model.ChatGroupAdmin{
 			ChatGroupId:   ChatGroup.Id,
 			AdminTgUserId: user.ID,
+			CreateTime:    time.Now().Format("2006-01-02 15:04:05"),
 		})
 		if err != nil {
 			log.Printf("群TgChatId %v 初始化管理员信息异常", chatId)
