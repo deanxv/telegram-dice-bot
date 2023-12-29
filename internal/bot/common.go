@@ -81,15 +81,15 @@ func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup, callbac
 			return nil, err
 		}
 		inlineKeyboardButton = tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️简易倍率: %v 倍", quickThereConfig.SimpleOdds), fmt.Sprintf("update_q_t_simple_odds?%s", callbackDataQueryString)),
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️豹子倍率: %v 倍", quickThereConfig.TripletOdds), fmt.Sprintf("update_q_t_triplet_odds?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️简易倍率: %v 倍", quickThereConfig.SimpleOdds), fmt.Sprintf("%s%s", enums.CallbackUpdateQuickThereSimpleOdds.Value, callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⚖️豹子倍率: %v 倍", quickThereConfig.TripletOdds), fmt.Sprintf("%s%s", enums.CallbackUpdateQuickThereTripletOdds.Value, callbackDataQueryString)),
 		)
 	}
 
 	return inlineKeyboardButton, nil
 }
 
-func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTextConfig, error) {
+func buildAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTextConfig, error) {
 	chatId := query.Message.Chat.ID
 	fromUser := query.From
 	messageId := query.Message.MessageID
@@ -136,8 +136,7 @@ func buildAddAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessage
 
 				inlineKeyboardRows = append(inlineKeyboardRows,
 					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("👥 %s", ChatGroup.TgChatGroupTitle), fmt.Sprintf("chat_group_config?%s", callbackDataQueryString)),
-					),
+						tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("👥 %s", ChatGroup.TgChatGroupTitle), fmt.Sprintf("%s%s", enums.CallbackChatGroupConfig.Value, callbackDataQueryString))),
 				)
 			}
 		}
@@ -203,7 +202,7 @@ func buildGameplayTypeInlineKeyboardButton(chatGroupId string) ([][]tgbotapi.Inl
 
 		inlineKeyboardRows = append(inlineKeyboardRows,
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(buttonDataText, fmt.Sprintf("update_gameplay_type?%s", callBackDataQueryString)),
+				tgbotapi.NewInlineKeyboardButtonData(buttonDataText, fmt.Sprintf("%s%s", enums.CallbackUpdateGameplayType.Value, callBackDataQueryString)),
 			),
 		)
 	}
@@ -223,7 +222,7 @@ func buildGameplayTypeInlineKeyboardButton(chatGroupId string) ([][]tgbotapi.Inl
 
 	inlineKeyboardRows = append(inlineKeyboardRows,
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", fmt.Sprintf("chat_group_config?%s", callBackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", fmt.Sprintf("%s%s", enums.CallbackChatGroupConfig.Value, callBackDataQueryString)),
 		),
 	)
 	return inlineKeyboardRows, nil
@@ -324,16 +323,16 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🛠️当前玩法:【%s】", gameplayType.Name), fmt.Sprintf("gameplay_type?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🛠️当前玩法:【%s】", gameplayType.Name), fmt.Sprintf("%s%s", enums.CallbackGameplayType.Value, callbackDataQueryString)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🕹️开启状态: %s", gameplayStatus.Name), fmt.Sprintf("update_gameplay_status?%s", callbackDataQueryString)),
-			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⏲️开奖周期: %v 分钟", chatGroup.GameDrawCycle), fmt.Sprintf("update_game_draw_cycle?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🕹️开启状态: %s", gameplayStatus.Name), fmt.Sprintf("%s%s", enums.CallbackUpdateGameplayStatus.Value, callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("⏲️开奖周期: %v 分钟", chatGroup.GameDrawCycle), fmt.Sprintf("%s%s", enums.CallbackUpdateGameDrawCycle.Value, callbackDataQueryString)),
 		),
 		inlineKeyboardButtons,
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔍查询用户信息", fmt.Sprintf("query_chat_group_user?%s", callbackDataQueryString)),
-			tgbotapi.NewInlineKeyboardButtonData("🖊️修改用户积分", fmt.Sprintf("update_chat_group_user_balance?%s", callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData("🔍查询用户信息", fmt.Sprintf("%s%s", enums.CallbackQueryChatGroupUser.Value, callbackDataQueryString)),
+			tgbotapi.NewInlineKeyboardButtonData("🖊️修改用户积分", fmt.Sprintf("%s%s", enums.CallbackUpdateChatGroupUserBalance.Value, callbackDataQueryString)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackAdminGroup.Value),

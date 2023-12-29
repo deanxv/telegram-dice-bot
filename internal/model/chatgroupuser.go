@@ -43,13 +43,13 @@ func (c *ChatGroupUser) QueryByTgUserIdAndChatGroupId(db *gorm.DB) (*ChatGroupUs
 	return chatGroupUser, nil
 }
 
-func (c *ChatGroupUser) QueryByTgUserId(db *gorm.DB) (*ChatGroupUser, error) {
-	var chatGroupUser *ChatGroupUser
-	result := db.Where("tg_user_id = ?", c.TgUserId).First(&chatGroupUser)
+func (c *ChatGroupUser) ListByTgUserId(db *gorm.DB) ([]*ChatGroupUser, error) {
+	var chatGroupUsers []*ChatGroupUser
+	result := db.Where("tg_user_id = ?", c.TgUserId).Order("create_time desc").Limit(100).Find(&chatGroupUsers)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return chatGroupUser, nil
+	return chatGroupUsers, nil
 }
 
 func (c *ChatGroupUser) QueryByUsernameAndChatGroupId(db *gorm.DB) (*ChatGroupUser, error) {

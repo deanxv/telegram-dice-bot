@@ -47,15 +47,31 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	fromUser := message.From
 	messageId := message.MessageID
-	chatId := message.Chat.ID
+	tgChatId := message.Chat.ID
+
+	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatId)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("群TgChatId %v 该群未初始化过配置 ", tgChatId)
+	} else if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", tgChatId, err.Error())
+		return
+	}
 
 	chatGroupUserQuery := &model.ChatGroupUser{
 		// 查询用户信息
-		TgUserId: fromUser.ID,
+		TgUserId:    fromUser.ID,
+		ChatGroupId: chatGroup.Id,
 	}
 
-	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserId(db)
-	if err != nil {
+	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 没有找到记录
+		msgConfig := tgbotapi.NewMessage(tgChatId, "您还未注册，使用 /register 进行注册。")
+		msgConfig.ReplyToMessageID = messageId
+		_, err := sendMessage(bot, &msgConfig)
+		blockedOrKicked(err, tgChatId)
+		return
+	} else if err != nil {
 		log.Printf("查询异常 err %s", err.Error())
 		return
 	}
@@ -67,7 +83,7 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		log.Printf("查询下注记录 err %s", err.Error())
 		return
 	}
-	sendMsg := tgbotapi.NewMessage(chatId, "")
+	sendMsg := tgbotapi.NewMessage(tgChatId, "")
 	sendMsg.ReplyToMessageID = messageId
 
 	if len(betRecords) == 0 {
@@ -115,12 +131,12 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 		sentMsg, err := sendMessage(bot, &sendMsg)
 		if err != nil {
-			blockedOrKicked(err, chatId)
+			blockedOrKicked(err, tgChatId)
 			return
 		}
 		go func(messageID int) {
 			time.Sleep(1 * time.Minute)
-			deleteMsg := tgbotapi.NewDeleteMessage(chatId, messageID)
+			deleteMsg := tgbotapi.NewDeleteMessage(tgChatId, messageID)
 			_, err := bot.Request(deleteMsg)
 			if err != nil {
 				log.Println("删除消息异常:", err)

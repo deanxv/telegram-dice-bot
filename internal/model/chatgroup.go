@@ -95,3 +95,14 @@ func (c *ChatGroup) ListByGameplayStatus(db *gorm.DB) ([]*ChatGroup, error) {
 
 	return chatGroups, nil
 }
+
+func ListChatGroupByIds(db *gorm.DB, chatGroupIds []string) ([]*ChatGroup, error) {
+	var chatGroups []*ChatGroup
+
+	result := db.Where("id in ? ", chatGroupIds).Find(&chatGroups)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return chatGroups, nil
+}

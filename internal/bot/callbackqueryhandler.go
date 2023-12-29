@@ -705,7 +705,7 @@ func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	fromUser := query.From
 	chatId := query.Message.Chat.ID
 
-	sendMsg, err := buildAddAdminGroupMsg(query)
+	sendMsg, err := buildAdminGroupMsg(query)
 	if err != nil {
 		log.Printf("TgUserId %v 查询管理群列表异常 %s ", fromUser.ID, err.Error())
 		return
@@ -720,6 +720,80 @@ func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
 func joinedGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
+	fromUser := query.From
+	tgChatId := query.Message.Chat.ID
+	messageId := query.Message.MessageID
+
+	// 查询当前人的信息
+	chatGroupUserQuery := &model.ChatGroupUser{
+		// 查询用户信息
+		TgUserId: fromUser.ID,
+	}
+
+	chatGroupUsers, err := chatGroupUserQuery.ListByTgUserId(db)
+	if err != nil {
+		log.Printf("TgUserId %v 查询群组异常 err %s", fromUser.ID, err.Error())
+		return
+	}
+	if len(chatGroupUsers) == 0 {
+		// 没有找到记录
+		msgConfig := tgbotapi.NewMessage(tgChatId, "你暂无加入的群")
+		_, err := sendMessage(bot, &msgConfig)
+		blockedOrKicked(err, tgChatId)
+		return
+	} else {
+
+		var inlineKeyboardRows [][]tgbotapi.InlineKeyboardButton
+
+		// 查询该用户的ChatGroupId
+		var chatGroupIds []string
+		for _, user := range chatGroupUsers {
+			chatGroupIds = append(chatGroupIds, user.ChatGroupId)
+		}
+
+		chatGroups, err := model.ListChatGroupByIds(db, chatGroupIds)
+		if err != nil {
+			log.Printf("chatGroupIds %v 查询群组异常 err %s", chatGroupIds, err.Error())
+			return
+		}
+
+		sendMsg := tgbotapi.NewEditMessageText(tgChatId, messageId, fmt.Sprintf("您有%v个加入的群:", len(chatGroups)))
+
+		for _, group := range chatGroups {
+			callbackDataKey, err := ButtonCallBackDataAddRedis(map[string]string{
+				"chatGroupId": group.Id,
+			})
+			if err != nil {
+				log.Println("内联键盘回调参数存入redis异常", err.Error())
+			}
+
+			callbackDataQueryString := utils.MapToQueryString(map[string]string{
+				"callbackDataKey": callbackDataKey,
+			})
+
+			inlineKeyboardRows = append(inlineKeyboardRows,
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("👥 %s", group.TgChatGroupTitle), fmt.Sprintf("chat_group_info?%s", callbackDataQueryString)),
+				),
+			)
+		}
+
+		inlineKeyboardRows = append(inlineKeyboardRows,
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackMainMenu.Value),
+			),
+		)
+
+		// 组装列表数据
+		newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
+			inlineKeyboardRows...,
+		)
+
+		sendMsg.ReplyMarkup = &newInlineKeyboardMarkup
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, tgChatId)
+		return
+	}
 }
 
 func alreadyReloadCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
