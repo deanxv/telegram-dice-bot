@@ -52,6 +52,15 @@ func (c *ChatGroupUser) ListByTgUserId(db *gorm.DB) ([]*ChatGroupUser, error) {
 	return chatGroupUsers, nil
 }
 
+func (c *ChatGroupUser) ListByTgUserIdAndIsLeft(db *gorm.DB) ([]*ChatGroupUser, error) {
+	var chatGroupUsers []*ChatGroupUser
+	result := db.Where("tg_user_id = ? and is_left = ?", c.TgUserId, c.IsLeft).Order("create_time desc").Limit(100).Find(&chatGroupUsers)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return chatGroupUsers, nil
+}
+
 func (c *ChatGroupUser) QueryByUsernameAndChatGroupId(db *gorm.DB) (*ChatGroupUser, error) {
 	var chatGroupUser *ChatGroupUser
 	result := db.Where("username = ? AND chat_group_id = ?", c.Username, c.ChatGroupId).First(&chatGroupUser)

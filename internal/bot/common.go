@@ -89,6 +89,81 @@ func buildGameplayConfigInlineKeyboardButton(chatGroup *model.ChatGroup, callbac
 	return inlineKeyboardButton, nil
 }
 
+func buildJoinedGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTextConfig, error) {
+	fromUser := query.From
+	fromChatId := query.Message.Chat.ID
+	messageId := query.Message.MessageID
+
+	var sendMsg tgbotapi.EditMessageTextConfig
+	var inlineKeyboardRows [][]tgbotapi.InlineKeyboardButton
+
+	// 查询当前人的信息
+	chatGroupUserQuery := &model.ChatGroupUser{
+		// 查询用户信息
+		TgUserId: fromUser.ID,
+		IsLeft:   0,
+	}
+
+	chatGroupUsers, err := chatGroupUserQuery.ListByTgUserIdAndIsLeft(db)
+	if err != nil {
+		log.Printf("TgUserId %v 查询群组异常 err %s", fromUser.ID, err.Error())
+		return nil, err
+	}
+	if len(chatGroupUsers) == 0 {
+		// 没有找到记录
+		sendMsg = tgbotapi.NewEditMessageText(fromChatId, messageId, "你暂无加入的群!")
+	} else {
+
+		// 查询该用户的ChatGroupId
+		var chatGroupIds []string
+		for _, user := range chatGroupUsers {
+			chatGroupIds = append(chatGroupIds, user.ChatGroupId)
+		}
+
+		chatGroups, err := model.ListChatGroupByIds(db, chatGroupIds)
+		if err != nil {
+			log.Printf("chatGroupIds %v 查询群组异常 err %s", chatGroupIds, err.Error())
+			return nil, err
+		}
+
+		sendMsg = tgbotapi.NewEditMessageText(fromChatId, messageId, fmt.Sprintf("您有%v个加入的群:", len(chatGroups)))
+
+		for _, group := range chatGroups {
+			callbackDataKey, err := ButtonCallBackDataAddRedis(map[string]string{
+				"chatGroupId": group.Id,
+			})
+			if err != nil {
+				log.Println("内联键盘回调参数存入redis异常", err.Error())
+				return nil, err
+			}
+
+			callbackDataQueryString := utils.MapToQueryString(map[string]string{
+				"callbackDataKey": callbackDataKey,
+			})
+
+			inlineKeyboardRows = append(inlineKeyboardRows,
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("👥 %s", group.TgChatGroupTitle), fmt.Sprintf("%s%s", enums.CallbackChatGroupInfo.Value, callbackDataQueryString)),
+				),
+			)
+		}
+	}
+	inlineKeyboardRows = append(inlineKeyboardRows,
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackMainMenu.Value),
+		),
+	)
+
+	// 组装列表数据
+	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
+		inlineKeyboardRows...,
+	)
+
+	sendMsg.ReplyMarkup = &newInlineKeyboardMarkup
+
+	return &sendMsg, nil
+}
+
 func buildAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTextConfig, error) {
 	chatId := query.Message.Chat.ID
 	fromUser := query.From

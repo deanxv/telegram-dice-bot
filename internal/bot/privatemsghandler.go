@@ -77,11 +77,129 @@ func handlePrivateText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			// 查询用户信息
 			queryUser(bot, message, &botPrivateChatCache)
 		} else if enums.WaitUpdateUserBalance.Value == botPrivateChatCache.ChatStatus {
-			// 查询用户信息
+			// 修改用户余额
 			updateUserBalance(bot, message, &botPrivateChatCache)
+		} else if enums.WaitTransferBalance.Value == botPrivateChatCache.ChatStatus {
+			// 转让用户积分
+			transferBalance(bot, message, &botPrivateChatCache)
 		}
 
 	}
+}
+
+func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCache *common.BotPrivateChatCache) {
+	text := message.Text
+	chatId := message.Chat.ID
+	fromUser := message.From
+
+	var operator string
+	var index int
+
+	// 检查字符串中的运算符
+	if strings.Contains(text, "+") {
+		operator = "+"
+		index = strings.Index(text, "+")
+	} else {
+		log.Println("未知的运算符")
+		return
+	}
+
+	var sendMsg tgbotapi.MessageConfig
+
+	// 分割字符串
+	chatGroupUserId := text[:index]
+	updateBalanceStr := text[index+1:]
+	updateBalance, err := strconv.ParseFloat(updateBalanceStr, 64)
+	if err != nil {
+		log.Printf("updateBalance转int异常 err %s", err.Error())
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分存在非法字符:%s", updateBalanceStr))
+		return
+	}
+
+	// 查询被转让用户信息
+	chatGroupUser := &model.ChatGroupUser{
+		Id: chatGroupUserId,
+	}
+	groupUser, err := chatGroupUser.QueryById(db)
+	if err != nil {
+		log.Println("查询用户信息异常:", err)
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
+		return
+	}
+
+	// 查询被转让用户群信息
+	chatGroup := &model.ChatGroup{
+		Id: groupUser.ChatGroupId,
+	}
+	group, err := model.QueryChatGroupById(db, chatGroup.Id)
+	if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", chatGroup.Id, err.Error())
+		return
+	}
+
+	// 获取被转让用户对应的互斥锁
+	userLockKey := fmt.Sprintf(ChatGroupUserLockKey, group.TgChatGroupId, groupUser.TgUserId)
+	userLock := getUserLock(userLockKey)
+	userLock.Lock()
+	defer userLock.Unlock()
+
+	// 查询发起转让用户信息
+	sendChatGroupUser := &model.ChatGroupUser{
+		TgUserId:    fromUser.ID,
+		ChatGroupId: chatGroup.Id,
+	}
+	sendGroupUser, err := sendChatGroupUser.QueryByTgUserIdAndChatGroupId(db)
+	if err != nil {
+		log.Println("查询用户信息异常:", err)
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
+		return
+	}
+
+	// 获取发起转让用户对应的互斥锁
+	sendUserLockKey := fmt.Sprintf(ChatGroupUserLockKey, chatGroup.TgChatGroupId, sendGroupUser.TgUserId)
+	sendUserLock := getUserLock(sendUserLockKey)
+	sendUserLock.Lock()
+	defer sendUserLock.Unlock()
+
+	tx := db.Begin()
+
+	// 重新查询用户信息
+	groupUser, _ = chatGroupUser.QueryById(tx)
+	sendGroupUser, _ = sendChatGroupUser.QueryById(tx)
+
+	// 根据运算符执行特定逻辑
+	switch operator {
+	case "+":
+		if sendGroupUser.Balance < updateBalance {
+			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分余额不足,你的积分余额为%.2f。", sendGroupUser.Balance))
+		} else {
+			groupUser.Balance += updateBalance
+			tx.Save(&groupUser)
+			sendGroupUser.Balance -= updateBalance
+			tx.Save(&sendGroupUser)
+			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("转让成功!【%s】增加%.2f积分,你的积分余额为%.2f。", groupUser.Username, updateBalance, sendGroupUser.Balance))
+			// 提交事务
+			if err := tx.Commit().Error; err != nil {
+				// 提交事务时出现异常，回滚事务
+				tx.Rollback()
+				return
+			}
+		}
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+	// 删除bot与当前对话人的cache
+	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, groupUser.TgUserId)
+	redisDB.Del(redisDB.Context(), redisKey)
+	blockedOrKicked(err, chatId)
+
+	// TODO 发送提示消息
+
+	return
 }
 
 func updateQuickThereTripletOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCache *common.BotPrivateChatCache) {
@@ -221,7 +339,7 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	groupUser, err := chatGroupUser.QueryById(db)
 	if err != nil {
 		log.Println("查询用户信息异常:", err)
-		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("未查询到该用户,用户Id:%s", chatGroupUserId))
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
 		return
 	}
 
@@ -307,7 +425,7 @@ func queryUser(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCa
 		log.Println("查询异常:", err)
 	} else {
 		// 查询到记录
-		msgConfig := tgbotapi.NewMessage(chatId, fmt.Sprintf("用户ID:%v\n用户名:%s\n余额:%.2f", groupUser.Id, groupUser.Username, groupUser.Balance))
+		msgConfig := tgbotapi.NewMessage(chatId, fmt.Sprintf("用户ID:%v\n用户名称:%s\n积分余额:%.2f", groupUser.Id, groupUser.Username, groupUser.Balance))
 		msgConfig.ReplyToMessageID = messageId
 		_, err := sendMessage(bot, &msgConfig)
 		blockedOrKicked(err, chatId)

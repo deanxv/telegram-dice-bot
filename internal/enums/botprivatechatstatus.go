@@ -23,6 +23,7 @@ var (
 	WaitUpdateUserBalance     = newBotPrivateChatStatus("WAIT_UPDATE_USER_BALANCE", "修改用户积分")
 	WaitQuickThereSimpleOdds  = newBotPrivateChatStatus("WAIT_QUICK_THERE_SIMPLE_ODDS", "快三简易倍率")
 	WaitQuickThereTripletOdds = newBotPrivateChatStatus("WAIT_QUICK_THERE_TRIPLET_ODDS", "快三豹子倍率")
+	WaitTransferBalance       = newBotPrivateChatStatus("WAIT_TRANSFER_BALANCE", "转让用户积分")
 )
 
 // GetBotPrivateChatStatus 通过 value 获取枚举项

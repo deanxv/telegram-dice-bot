@@ -29,12 +29,21 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 			alreadyInvitedCallBack(bot, callbackQuery)
 		} else if callbackQuery.Data == enums.CallbackAlreadyReload.Value {
 			alreadyReloadCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackChatGroupInfo.Value) {
+			// 群详情信息
+			chatGroupInfoCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackTransferBalance.Value) {
+			// 转让积分
+			transferBalanceCallBack(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackExitGroup.Value) {
+			// 退群删除
+			exitGroupCallBack(bot, callbackQuery)
 		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackChatGroupConfig.Value) {
 			// 群配置
-			chatGroupCallBack(bot, callbackQuery)
+			chatGroupConfigCallBack(bot, callbackQuery)
 		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackGameplayType.Value) {
 			// 群配置-游戏类型
-			GameplayTypeCallBack(bot, callbackQuery)
+			gameplayTypeCallBack(bot, callbackQuery)
 		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateGameplayType.Value) {
 			// 群配置-更新游戏类型
 			updateGameplayTypeCallBack(bot, callbackQuery)
@@ -63,6 +72,206 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 			lotteryHistoryCallBack(bot, callbackQuery)
 		}
 	}
+}
+
+func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	fromChatId := query.Message.Chat.ID
+	fromUser := query.From
+
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackTransferBalance.Value)+len(enums.CallbackTransferBalance.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	sendMsg := tgbotapi.NewMessage(fromChatId, "请按照以下格式转让用户积分:\n"+
+		"[用户Id]+[积分] 例子: 10086+100")
+
+	// 设置当前机器人状态
+	err = PrivateChatCacheAddRedis(fromUser.ID, &common.BotPrivateChatCache{
+		ChatStatus:  enums.WaitTransferBalance.Value,
+		ChatGroupId: chatGroupId,
+	})
+
+	if err != nil {
+		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.CallbackTransferBalance.Value)
+		return
+	}
+
+	_, err = sendMessage(bot, &sendMsg)
+
+	if err != nil {
+		blockedOrKicked(err, fromChatId)
+		return
+	}
+}
+
+func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	fromUser := query.From
+	fromChatId := query.Message.Chat.ID
+
+	// 查询使用的chatGroupId为内联键盘中的Data
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackExitGroup.Value)+len(enums.CallbackExitGroup.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 查询该群信息
+	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		return
+	} else if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		return
+	}
+
+	// 查询该用户
+	chatGroupUserQuery := &model.ChatGroupUser{
+		TgUserId:    fromUser.ID,
+		ChatGroupId: chatGroup.Id,
+	}
+
+	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("该用户未注册 err %s", err.Error())
+		return
+	} else if err != nil {
+		log.Printf("查询异常 err %s", err.Error())
+		return
+	}
+
+	// 更新该用户状态为离开
+	chatGroupUser.IsLeft = 1
+	result := db.Save(&chatGroupUser)
+
+	if result.Error != nil {
+		log.Println("保存用户信息异常:", result.Error)
+		return
+	}
+
+	// 更新上条消息
+	sendMsg, err := buildJoinedGroupMsg(query)
+	if err != nil {
+		log.Printf("TgUserId %v 查询加入的群列表异常 %s ", fromUser.ID, err.Error())
+		return
+	}
+
+	_, err = sendMessage(bot, sendMsg)
+	blockedOrKicked(err, fromChatId)
+
+	// 发送提示消息
+	msgConfig := tgbotapi.NewMessage(fromChatId, fmt.Sprintf("删除【%s】信息成功!", chatGroup.TgChatGroupTitle))
+	_, err = sendMessage(bot, &msgConfig)
+	blockedOrKicked(err, fromChatId)
+}
+
+func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	fromUser := query.From
+	fromChatId := query.Message.Chat.ID
+	messageId := query.Message.MessageID
+
+	// 查询使用的chatGroupId为内联键盘中的Data
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackChatGroupInfo.Value)+len(enums.CallbackChatGroupInfo.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 查询该群信息
+	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		return
+	} else if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		return
+	}
+
+	// 查询用户在该群的信息
+	chatGroupUserQuery := &model.ChatGroupUser{
+		TgUserId:    fromUser.ID,
+		ChatGroupId: chatGroup.Id,
+	}
+
+	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("ChatGroupId %s TgUserId %v 群组中不存在该用户 err %s", chatGroup.Id, fromUser.ID, err.Error())
+		return
+	} else if err != nil {
+		log.Printf("查询异常 err %s", err.Error())
+		return
+	}
+
+	sendMsg := tgbotapi.NewEditMessageText(fromChatId, messageId, fmt.Sprintf("你在【%s】中的信息:\n用户ID:%s\n积分余额:%.2f\n", chatGroup.TgChatGroupTitle, chatGroupUser.Id, chatGroupUser.Balance))
+
+	// 重新生成内联键盘回调key
+	callbackDataKey, err := ButtonCallBackDataAddRedis(map[string]string{
+		"chatGroupId": chatGroup.Id,
+	})
+
+	if err != nil {
+		log.Println("内联键盘回调参数存入redis异常", err.Error())
+		return
+	}
+
+	callbackDataQueryString := utils.MapToQueryString(map[string]string{
+		"callbackDataKey": callbackDataKey,
+	})
+
+	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💸转让积分", fmt.Sprintf("%s%s", enums.CallbackTransferBalance.Value, callbackDataQueryString)),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackJoinedGroup.Value),
+			tgbotapi.NewInlineKeyboardButtonData("🚮我已退群", fmt.Sprintf("%s%s", enums.CallbackExitGroup.Value, callbackDataQueryString)),
+		),
+	)
+	sendMsg.ReplyMarkup = &newInlineKeyboardMarkup
+	_, err = sendMessage(bot, &sendMsg)
+	blockedOrKicked(err, fromChatId)
+	return
+
 }
 
 func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
@@ -324,7 +533,7 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	sendMsg := tgbotapi.NewMessage(chatId, "请输入用户名称，如:@username")
+	sendMsg := tgbotapi.NewMessage(chatId, "请输入当前群聊中的用户名称，如:@username")
 
 	// 设置当前机器人状态
 	err = PrivateChatCacheAddRedis(chatId, &common.BotPrivateChatCache{
@@ -544,7 +753,7 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 
 }
 
-func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatId := query.Message.Chat.ID
 	fromUser := query.From
 	messageId := query.Message.MessageID
@@ -598,7 +807,7 @@ func GameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	}
 }
 
-func chatGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+func chatGroupConfigCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatID := query.Message.Chat.ID
 	messageID := query.Message.MessageID
 	fromUser := query.From
@@ -719,79 +928,18 @@ func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 }
 
 func joinedGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
-
 	fromUser := query.From
-	tgChatId := query.Message.Chat.ID
-	messageId := query.Message.MessageID
+	fromChatId := query.Message.Chat.ID
 
-	// 查询当前人的信息
-	chatGroupUserQuery := &model.ChatGroupUser{
-		// 查询用户信息
-		TgUserId: fromUser.ID,
-	}
-
-	chatGroupUsers, err := chatGroupUserQuery.ListByTgUserId(db)
+	sendMsg, err := buildJoinedGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询群组异常 err %s", fromUser.ID, err.Error())
+		log.Printf("TgUserId %v 查询加入的群列表异常 %s ", fromUser.ID, err.Error())
 		return
 	}
-	if len(chatGroupUsers) == 0 {
-		// 没有找到记录
-		msgConfig := tgbotapi.NewMessage(tgChatId, "你暂无加入的群")
-		_, err := sendMessage(bot, &msgConfig)
-		blockedOrKicked(err, tgChatId)
-		return
-	} else {
 
-		var inlineKeyboardRows [][]tgbotapi.InlineKeyboardButton
-
-		// 查询该用户的ChatGroupId
-		var chatGroupIds []string
-		for _, user := range chatGroupUsers {
-			chatGroupIds = append(chatGroupIds, user.ChatGroupId)
-		}
-
-		chatGroups, err := model.ListChatGroupByIds(db, chatGroupIds)
-		if err != nil {
-			log.Printf("chatGroupIds %v 查询群组异常 err %s", chatGroupIds, err.Error())
-			return
-		}
-
-		sendMsg := tgbotapi.NewEditMessageText(tgChatId, messageId, fmt.Sprintf("您有%v个加入的群:", len(chatGroups)))
-
-		for _, group := range chatGroups {
-			callbackDataKey, err := ButtonCallBackDataAddRedis(map[string]string{
-				"chatGroupId": group.Id,
-			})
-			if err != nil {
-				log.Println("内联键盘回调参数存入redis异常", err.Error())
-			}
-
-			callbackDataQueryString := utils.MapToQueryString(map[string]string{
-				"callbackDataKey": callbackDataKey,
-			})
-
-			inlineKeyboardRows = append(inlineKeyboardRows,
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("👥 %s", group.TgChatGroupTitle), fmt.Sprintf("chat_group_info?%s", callbackDataQueryString)),
-				),
-			)
-		}
-
-		inlineKeyboardRows = append(inlineKeyboardRows,
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackMainMenu.Value),
-			),
-		)
-
-		// 组装列表数据
-		newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
-			inlineKeyboardRows...,
-		)
-
-		sendMsg.ReplyMarkup = &newInlineKeyboardMarkup
-		_, err = sendMessage(bot, &sendMsg)
-		blockedOrKicked(err, tgChatId)
+	_, err = sendMessage(bot, sendMsg)
+	if err != nil {
+		blockedOrKicked(err, fromChatId)
 		return
 	}
 }
