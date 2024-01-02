@@ -2,11 +2,11 @@
   
 # telegram-dice-bot
 
-_Telegram骰子娱乐机器人_
+_免费且开源的Telegram骰子娱乐机器人_
 
 _觉得有点意思的话 别忘了点个🌟_
 
-🔨<a href="https://t.me/d_happy_bot" style="font-size: 20px;">点击试用TelegramBot</a>
+🔨<a href="https://t.me/d_happy_bot" style="font-size: 20px;">点击使用TelegramBot</a>
 或
 👥<a href="https://t.me/+HOSNzxTdUnIxNjdl" style="font-size: 20px;">点击进入TG群体验</a>
 
