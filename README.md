@@ -1,4 +1,4 @@
-<div align="center">
+![2K(LAZFN%3BJPNU%21}I_VU](https://github.com/deanxv/telegram-dice-bot/assets/57529708/91ca6090-94ab-4d41-a077-50e042739d78)![2K(LAZFN%3BJPNU%21}I_VU](https://github.com/deanxv/telegram-dice-bot/assets/57529708/dd9144d7-66b2-4235-b299-07a2777920b5)<div align="center">
 
 # telegram-dice-bot
 
@@ -6,6 +6,8 @@ _Telegram骰子娱乐机器人_
 
 _觉得有点意思的话 别忘了点个🌟_
 
+🔨<a href="https://t.me/d_happy_bot" style="font-size: 20px;">点击试用TelegramBot</a>
+或
 <a href="https://t.me/+HOSNzxTdUnIxNjdl" style="font-size: 20px;">点击进入TG群体验</a>
 
 </div>
