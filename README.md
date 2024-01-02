@@ -42,12 +42,12 @@ _觉得有点意思的话 别忘了点个🌟_
 
 ### 功能示例(部分)
 
-<img src="https://s2.loli.net/2024/01/02/9bUsvlm3cSGT1Co.png" width="200">
-<img src="https://s2.loli.net/2024/01/02/GC21pfqX6cPuEnB.png" width="193">
-<img src="https://s2.loli.net/2024/01/02/Cszb3NkgQpPif6Z.png" width="200">
-<img src="https://s2.loli.net/2024/01/02/EWobi4ezPBDNjOX.png" width="200">
-<img src="https://s2.loli.net/2024/01/02/nJmRrhHyVBD2W7w.png" width="200">
-<img src="https://s2.loli.net/2024/01/02/4rBGa1uUCRc8MSZ.png" width="200">
+<a href="https://sm.ms/image/nJmRrhHyVBD2W7w" target="_blank"><img src="https://s2.loli.net/2024/01/02/nJmRrhHyVBD2W7w.png" width="200"/></a>
+<a href="https://sm.ms/image/GC21pfqX6cPuEnB" target="_blank"><img src="https://s2.loli.net/2024/01/02/GC21pfqX6cPuEnB.png" width="193"/></a>
+<a href="https://sm.ms/image/Cszb3NkgQpPif6Z" target="_blank"><img src="https://s2.loli.net/2024/01/02/Cszb3NkgQpPif6Z.png" width="200"/></a></br>
+<a href="https://sm.ms/image/EWobi4ezPBDNjOX" target="_blank"><img src="https://s2.loli.net/2024/01/02/EWobi4ezPBDNjOX.png" width="200"/></a>
+<a href="https://sm.ms/image/nJmRrhHyVBD2W7w" target="_blank"><img src="https://s2.loli.net/2024/01/02/nJmRrhHyVBD2W7w.png" width="200"/></a>
+<a href="https://sm.ms/image/4rBGa1uUCRc8MSZ" target="_blank"><img src="https://s2.loli.net/2024/01/02/4rBGa1uUCRc8MSZ.png" width="200"/></a></br>
 
 ## 部署
 
