@@ -39,9 +39,65 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		handleMyCommand(bot, message)
 	case "myhistory":
 		handleMyHistoryCommand(bot, message)
-		//case "help":
-		//	handleHelpCommand(bot, message)
+	case "help":
+		handleHelpCommand(bot, message)
 	}
+}
+
+func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
+	fromChatId := message.Chat.ID
+	messageID := message.MessageID
+
+	// 查询当前群组的配置
+	chatGroup, err := model.QueryChatGroupByTgChatId(db, fromChatId)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 群未初始化则不处理
+		log.Printf("群未初始化")
+		return
+	} else if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", fromChatId, err.Error())
+		return
+	}
+
+	var gameHelp string
+
+	if chatGroup.GameplayType == enums.QuickThere.Value {
+		gameHelp = "下注示例(竞猜类型-单,下注积分-20):\n #单 20 \n支持竞猜类型: 单、双、大、小、豹子"
+	}
+
+	gameplayType, b := enums.GetGameplayType(chatGroup.GameplayType)
+	if !b {
+		log.Printf("GameplayType %v 群配置玩法查询异常", chatGroup.GameplayType)
+		return
+	}
+
+	// help命令
+	msgConfig := tgbotapi.NewMessage(fromChatId,
+		fmt.Sprintf("/help 帮助\n"+
+			"/register 用户注册\n"+
+			"/sign 用户签到\n"+
+			"/my 查询积分\n"+
+			"/myhistory 查询历史下注记录\n\n"+
+			"当前游戏类型【%s】\n"+
+			"开奖周期 %v 分钟\n"+
+			"%s",
+			gameplayType.Name,
+			chatGroup.GameDrawCycle,
+			gameHelp))
+	msgConfig.ReplyToMessageID = messageID
+	sentMsg, err := sendMessage(bot, &msgConfig)
+	if err != nil {
+		blockedOrKicked(err, fromChatId)
+		return
+	}
+	go func(messageID int) {
+		time.Sleep(1 * time.Minute)
+		deleteMsg := tgbotapi.NewDeleteMessage(fromChatId, messageID)
+		_, err := bot.Request(deleteMsg)
+		if err != nil {
+			log.Println("删除消息异常:", err)
+		}
+	}(sentMsg.MessageID)
 }
 
 func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {

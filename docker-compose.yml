@@ -1,0 +1,37 @@
+version: '3.4'
+
+services:
+  telegram-dice-bot:
+    image: deanxv/telegram-dice-bot:latest
+    container_name: telegram-dice-bot
+    restart: always
+    volumes:
+      - ./data/telegram-dice-bot:/data
+    environment:
+      - MYSQL_DSN=telegram-dice-bot:123456@tcp(db:3306)/telegram_dice_bot  # 可修改此行 SQL连接信息
+      - REDIS_CONN_STRING=redis://redis
+      - TZ=Asia/Shanghai
+      - TELEGRAM_API_TOKEN=6830xxxxxxxxxxxxxxxx3GawBHc7ywDuU  # 必须修改此行telegram-bot的token
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+
+  db:
+    image: mysql:8.2.0
+    restart: always
+    container_name: mysql
+    volumes:
+      - ./data/mysql:/var/lib/mysql  # 挂载目录，持久化存储
+    ports:
+      - '3306:3306'
+    environment:
+      TZ: Asia/Shanghai   # 可修改默认时区
+      MYSQL_ROOT_PASSWORD: 'root@123456' # 可修改此行 root用户名 密码
+      MYSQL_USER: telegram-dice-bot   # 可修改初始化专用用户用户名
+      MYSQL_PASSWORD: '123456'    # 可修改初始化专用用户密码
+      MYSQL_DATABASE: telegram_dice_bot   # 可修改初始化专用数据库
