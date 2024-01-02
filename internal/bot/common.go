@@ -111,7 +111,7 @@ func buildJoinedGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTe
 	}
 	if len(chatGroupUsers) == 0 {
 		// 没有找到记录
-		sendMsg = tgbotapi.NewEditMessageText(fromChatId, messageId, "你暂无加入的群!")
+		sendMsg = tgbotapi.NewEditMessageText(fromChatId, messageId, "您暂无加入的群!")
 	} else {
 
 		// 查询该用户的ChatGroupId
@@ -181,7 +181,7 @@ func buildAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTex
 	// 查询当前消息来源人关联的群聊
 	chatGroupAdmins, err := model.ListChatGroupAdminByAdminTgUserId(db, fromUser.ID)
 	if len(chatGroupAdmins) == 0 {
-		sendMsg = tgbotapi.NewEditMessageText(chatId, messageId, "你暂无管理的群!")
+		sendMsg = tgbotapi.NewEditMessageText(chatId, messageId, "您暂无管理的群!")
 	} else if err != nil {
 		log.Printf("TgUserId %v 查询管理群列表异常 %s ", chatId, err.Error())
 		return nil, errors.New("查询管理群列表异常")

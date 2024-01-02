@@ -242,7 +242,7 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 		return
 	}
 
-	sendMsg := tgbotapi.NewEditMessageText(fromChatId, messageId, fmt.Sprintf("你在【%s】中的信息:\n用户ID:%s\n积分余额:%.2f\n", chatGroup.TgChatGroupTitle, chatGroupUser.Id, chatGroupUser.Balance))
+	sendMsg := tgbotapi.NewEditMessageText(fromChatId, messageId, fmt.Sprintf("您在【%s】中的信息:\n用户ID:%s\n积分余额:%.2f\n", chatGroup.TgChatGroupTitle, chatGroupUser.Id, chatGroupUser.Balance))
 
 	// 重新生成内联键盘回调key
 	callbackDataKey, err := ButtonCallBackDataAddRedis(map[string]string{
@@ -877,7 +877,7 @@ func mainMenuCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, fmt.Sprintf("你好,%s!", member.User.FirstName))
+	sendMsg := tgbotapi.NewEditMessageText(chatId, messageId, fmt.Sprintf("您好,%s!", member.User.FirstName))
 	sendMsg.ReplyMarkup = buildDefaultInlineKeyboardMarkup(bot)
 
 	_, err = sendMessage(bot, &sendMsg)
