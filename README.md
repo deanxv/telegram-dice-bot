@@ -1,3 +1,5 @@
+<div align="center">
+  
 # telegram-dice-bot
 
 _Telegram骰子娱乐机器人_
