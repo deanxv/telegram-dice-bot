@@ -66,6 +66,8 @@ func buildDefaultInlineKeyboardMarkup(bot *tgbotapi.BotAPI) *tgbotapi.InlineKeyb
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👨🏻‍💼我加入的群", enums.CallbackJoinedGroup.Value),
 			tgbotapi.NewInlineKeyboardButtonData("👮🏻‍♂️我管理的群", enums.CallbackAdminGroup.Value)),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL("🌟GitHub地址", "https://github.com/deanxv/telegram-dice-bot")),
 	)
 	return &newInlineKeyboardMarkup
 }

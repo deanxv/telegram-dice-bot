@@ -62,7 +62,12 @@ func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	var gameHelp string
 
 	if chatGroup.GameplayType == enums.QuickThere.Value {
-		gameHelp = "下注示例(竞猜类型-单,下注积分-20):\n #单 20 \n支持竞猜类型: 单、双、大、小、豹子"
+		quickThereConfig, err := model.QueryQuickThereConfigByChatGroupId(db, chatGroup.Id)
+		if err != nil {
+			log.Printf("ChatGroupId %v 查询群的快三配置异常:", err)
+			return
+		}
+		gameHelp = fmt.Sprintf("当前倍率:\n简易%v倍丨豹子%v倍\n\n支持竞猜类型: 单、双、大、小、豹子\n竞猜示例(竞猜类型-单,下注积分-20):\n #单 20", quickThereConfig.SimpleOdds, quickThereConfig.TripletOdds)
 	}
 
 	gameplayType, b := enums.GetGameplayType(chatGroup.GameplayType)

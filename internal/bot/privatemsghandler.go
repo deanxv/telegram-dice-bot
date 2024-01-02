@@ -118,9 +118,10 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 
 	// 查询被转让用户信息
 	chatGroupUser := &model.ChatGroupUser{
-		Id: chatGroupUserId,
+		Id:          chatGroupUserId,
+		ChatGroupId: botPrivateChatCache.ChatGroupId,
 	}
-	groupUser, err := chatGroupUser.QueryById(db)
+	groupUser, err := chatGroupUser.QueryByIdAndChatGroupId(db)
 	if err != nil {
 		log.Println("查询用户信息异常:", err)
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
@@ -159,6 +160,13 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 		return
 	}
 
+	if sendGroupUser.Id == groupUser.Id {
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("不可对自己转让积分!"))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
+		return
+	}
+
 	// 获取发起转让用户对应的互斥锁
 	sendUserLockKey := fmt.Sprintf(ChatGroupUserLockKey, chatGroup.TgChatGroupId, sendGroupUser.TgUserId)
 	sendUserLock := getUserLock(sendUserLockKey)
@@ -168,8 +176,8 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	tx := db.Begin()
 
 	// 重新查询用户信息
-	groupUser, _ = chatGroupUser.QueryById(tx)
-	sendGroupUser, _ = sendChatGroupUser.QueryById(tx)
+	groupUser, _ = groupUser.QueryById(tx)
+	sendGroupUser, _ = sendGroupUser.QueryById(tx)
 
 	// 根据运算符执行特定逻辑
 	switch operator {
@@ -181,7 +189,7 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 			tx.Save(&groupUser)
 			sendGroupUser.Balance -= updateBalance
 			tx.Save(&sendGroupUser)
-			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("转让成功!【%s】增加%.2f积分,您的积分余额为%.2f。", groupUser.Username, updateBalance, sendGroupUser.Balance))
+			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("转让成功!【%s】中的用户【@%s】增加%.2f积分,您的积分余额为%.2f。", group.TgChatGroupTitle, groupUser.Username, updateBalance, sendGroupUser.Balance))
 			// 提交事务
 			if err := tx.Commit().Error; err != nil {
 				// 提交事务时出现异常，回滚事务
@@ -193,12 +201,12 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 
 	_, err = sendMessage(bot, &sendMsg)
 	// 删除bot与当前对话人的cache
-	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, groupUser.TgUserId)
+	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, fromUser.ID)
 	redisDB.Del(redisDB.Context(), redisKey)
 	blockedOrKicked(err, chatId)
 
 	// 发送被转让用户的提示消息
-	sendNotifyMsg := tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("您收到用户【%s】转让的%.2f积分,您的积分余额为%.2f。", sendGroupUser.Username, updateBalance, groupUser.Balance))
+	sendNotifyMsg := tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("【%s】您收到用户【@%s】转让的%.2f积分,您的积分余额为%.2f。", group.TgChatGroupTitle, sendGroupUser.Username, updateBalance, groupUser.Balance))
 	_, err = sendMessage(bot, &sendNotifyMsg)
 	blockedOrKicked(err, groupUser.TgUserId)
 	return
@@ -370,25 +378,25 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	case "+":
 		groupUser.Balance += updateBalance
 		db.Save(&groupUser)
-		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已为用户【%s】增加%.2f积分,积分余额为%.2f。", groupUser.Username, updateBalance, groupUser.Balance))
-		sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("管理员为您增加了%.2f积分,您的积分余额为%.2f。", updateBalance, groupUser.Balance))
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已为【%s】中的用户【@%s】增加%.2f积分,积分余额为%.2f。", group.TgChatGroupTitle, groupUser.Username, updateBalance, groupUser.Balance))
+		sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("【%s】管理员为您增加了%.2f积分,您的积分余额为%.2f。", group.TgChatGroupTitle, updateBalance, groupUser.Balance))
 	case "-":
 		if groupUser.Balance < updateBalance {
-			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("用户【%s】积分余额为%.2f,小于您想扣除的积分，请留点积分吧。", groupUser.Username, groupUser.Balance))
+			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("【%s】中的用户【@%s】积分余额为%.2f,小于您想扣除的积分，请留点积分吧。", group.TgChatGroupTitle, groupUser.Username, groupUser.Balance))
 			_, err = sendMessage(bot, &sendMsg)
 			blockedOrKicked(err, chatId)
 			return
 		} else {
 			groupUser.Balance -= updateBalance
 			db.Save(&groupUser)
-			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已为用户【%s】扣除%.2f积分,积分余额为%.2f。", groupUser.Username, updateBalance, groupUser.Balance))
-			sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("管理员为您扣除了%.2f积分,您的积分余额为%.2f。", updateBalance, groupUser.Balance))
+			sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已为【%s】中的用户【@%s】扣除%.2f积分,积分余额为%.2f。", group.TgChatGroupTitle, groupUser.Username, updateBalance, groupUser.Balance))
+			sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("【%s】管理员扣除了您%.2f积分,您的积分余额为%.2f。", group.TgChatGroupTitle, updateBalance, groupUser.Balance))
 		}
 	case "=":
 		groupUser.Balance = updateBalance
 		db.Save(&groupUser)
-		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已将用户【%s】积分修改为%.2f。", groupUser.Username, groupUser.Balance))
-		sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("管理员将您的积分修改为%.2f。", groupUser.Balance))
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("已将【%s】中的用户【@%s】积分修改为%.2f。", group.TgChatGroupTitle, groupUser.Username, groupUser.Balance))
+		sendNotifyMsg = tgbotapi.NewMessage(groupUser.TgUserId, fmt.Sprintf("【%s】管理员将您的积分修改为%.2f。", group.TgChatGroupTitle, groupUser.Balance))
 	}
 
 	_, err = sendMessage(bot, &sendMsg)
@@ -398,7 +406,7 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	blockedOrKicked(err, groupUser.TgUserId)
 
 	// 删除bot与当前对话人的cache
-	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, groupUser.TgUserId)
+	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, tgUserId)
 	redisDB.Del(redisDB.Context(), redisKey)
 	return
 
@@ -440,7 +448,7 @@ func queryUser(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCa
 		_, err := sendMessage(bot, &msgConfig)
 		blockedOrKicked(err, chatId)
 		// 删除bot与当前对话人的cache
-		redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, groupUser.TgUserId)
+		redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, tgUserId)
 		redisDB.Del(redisDB.Context(), redisKey)
 		return
 	}

@@ -78,3 +78,12 @@ func (c *ChatGroupUser) QueryById(db *gorm.DB) (*ChatGroupUser, error) {
 	}
 	return chatGroupUser, nil
 }
+
+func (c *ChatGroupUser) QueryByIdAndChatGroupId(db *gorm.DB) (*ChatGroupUser, error) {
+	var chatGroupUser *ChatGroupUser
+	result := db.Where("id = ? AND chat_group_id = ?", c.Id, c.ChatGroupId).First(&chatGroupUser)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return chatGroupUser, nil
+}
