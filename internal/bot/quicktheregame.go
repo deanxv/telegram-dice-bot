@@ -306,7 +306,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 
 	// 消息提醒
 	sendMsg := tgbotapi.NewMessage(chatGroupUser.TgUserId,
-		fmt.Sprintf("您在第【%s】第%s期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%.2f。",
+		fmt.Sprintf("您在【%s】第%s期下注%v积分猜【%s】,竞猜结果为【%s】,积分余额%.2f。",
 			ChatGroup.TgChatGroupTitle,
 			betRecord.IssueNumber,
 			betRecord.BetAmount,
