@@ -6,7 +6,6 @@ _Telegram骰子娱乐机器人_
 
 _觉得有点意思的话 别忘了点个🌟_
 
-
 <a href="https://t.me/+HOSNzxTdUnIxNjdl" style="font-size: 20px;">点击进入TG群体验</a>
 
 </div>
@@ -41,9 +40,14 @@ _觉得有点意思的话 别忘了点个🌟_
 支持竞猜类型: 单、双、大、小、豹子
 ```
 
-### 功能示例
+### 功能示例(部分)
 
-![IMG](https://s2.loli.net/2023/12/12/Y6mBkRM94rUKLul.gif)
+<img src="https://s2.loli.net/2024/01/02/9bUsvlm3cSGT1Co.png" width="200">
+<img src="https://s2.loli.net/2024/01/02/GC21pfqX6cPuEnB.png" width="193">
+<img src="https://s2.loli.net/2024/01/02/Cszb3NkgQpPif6Z.png" width="200">
+<img src="https://s2.loli.net/2024/01/02/EWobi4ezPBDNjOX.png" width="200">
+<img src="https://s2.loli.net/2024/01/02/nJmRrhHyVBD2W7w.png" width="200">
+<img src="https://s2.loli.net/2024/01/02/4rBGa1uUCRc8MSZ.png" width="200">
 
 ## 部署
 
