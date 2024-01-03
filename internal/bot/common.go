@@ -413,6 +413,7 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("⬅️返回", enums.CallbackAdminGroup.Value),
+			tgbotapi.NewInlineKeyboardButtonData("🚮我已退群", fmt.Sprintf("%s%s", enums.CallbackAdminExitGroup.Value, callbackDataQueryString)),
 		),
 	)
 	return &newInlineKeyboardMarkup, nil

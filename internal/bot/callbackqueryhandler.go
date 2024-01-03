@@ -65,6 +65,9 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackUpdateChatGroupUserBalance.Value) {
 			// 修改用户积分
 			updateChatGroupUserBalance(bot, callbackQuery)
+		} else if strings.HasPrefix(callbackQuery.Data, enums.CallbackAdminExitGroup.Value) {
+			// 管理员退群
+			exitAdminGroupCallBack(bot, callbackQuery)
 		}
 	} else if callbackQuery.Message.Chat.IsGroup() || callbackQuery.Message.Chat.IsSuperGroup() {
 		if callbackQuery.Data == enums.CallbackLotteryHistory.Value {
@@ -72,6 +75,64 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 			lotteryHistoryCallBack(bot, callbackQuery)
 		}
 	}
+}
+
+func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+	fromUser := query.From
+	fromChatId := query.Message.Chat.ID
+
+	// 查询使用的chatGroupId为内联键盘中的Data
+	queryString := query.Data[strings.Index(query.Data, enums.CallbackExitGroup.Value)+len(enums.CallbackExitGroup.Value):]
+
+	queryStringToMap, err := utils.QueryStringToMap(queryString)
+	if err != nil {
+		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		return
+	}
+	callBackDataKey := queryStringToMap["callbackDataKey"]
+
+	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
+
+	if err != nil {
+		log.Printf("内联键盘回调参数redis查询异常")
+		return
+	}
+
+	chatGroupId := callBackData["chatGroupId"]
+
+	// 查询该群信息
+	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		return
+	} else if err != nil {
+		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		return
+	}
+
+	// 删除该用户
+	chatGroupUserQuery := &model.ChatGroupAdmin{
+		AdminTgUserId: fromUser.ID,
+		ChatGroupId:   chatGroup.Id,
+	}
+
+	chatGroupUserQuery.DeleteByChatGroupIdAndAdminTgUserId(db)
+
+	// 更新上条消息
+	sendMsg, err := buildAdminGroupMsg(query)
+	if err != nil {
+		log.Printf("TgUserId %v 查询管理的群列表异常 %s ", fromUser.ID, err.Error())
+		return
+	}
+
+	_, err = sendMessage(bot, sendMsg)
+	blockedOrKicked(err, fromChatId)
+
+	// 发送提示消息
+	msgConfig := tgbotapi.NewMessage(fromChatId, fmt.Sprintf("删除【%s】信息成功!", chatGroup.TgChatGroupTitle))
+	_, err = sendMessage(bot, &msgConfig)
+	blockedOrKicked(err, fromChatId)
 }
 
 func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {

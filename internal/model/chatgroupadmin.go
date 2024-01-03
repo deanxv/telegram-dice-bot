@@ -56,3 +56,7 @@ func ListChatGroupAdminByAdminTgUserId(db *gorm.DB, adminTgUserId int64) ([]*Cha
 func DeleteChatGroupAdminByChatGroupId(db *gorm.DB, chatGroupId string) {
 	db.Where("chat_group_id = ?", chatGroupId).Delete(&ChatGroupAdmin{})
 }
+
+func (c *ChatGroupAdmin) DeleteByChatGroupIdAndAdminTgUserId(db *gorm.DB) {
+	db.Where("chat_group_id = ? and admin_tg_user_id = ?", c.ChatGroupId, c.AdminTgUserId).Delete(&ChatGroupAdmin{})
+}

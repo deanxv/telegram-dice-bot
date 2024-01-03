@@ -37,6 +37,7 @@ var (
 	CallbackChatGroupInfo               = newCallbackPrefix("chat_group_info?", "群详情信息")
 	CallbackTransferBalance             = newCallbackPrefix("transfer_balance?", "转让积分(用户)")
 	CallbackExitGroup                   = newCallbackPrefix("exit_group?", "退出群聊")
+	CallbackAdminExitGroup              = newCallbackPrefix("admin_exit_group?", "退出群聊")
 )
 
 // GetCallbackPrefix 通过 value 获取枚举项

@@ -20,6 +20,7 @@ func newGroupStatus(value string, name string) GroupStatus {
 var (
 	Normal = newGroupStatus("NORMAL", "正常")
 	Kicked = newGroupStatus("KICKED", "踢出")
+	//Disband = newGroupStatus("DISBAND", "解散")
 )
 
 // GetGroupStatus 通过 value 获取枚举项

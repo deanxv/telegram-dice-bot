@@ -13,6 +13,19 @@ import (
 )
 
 func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber string) (nextIssueNumber string, err error) {
+	// 执行任务前对群组校验 如果只剩1个人那必然是自己
+	chatMembersLen, err := bot.GetChatMembersCount(tgbotapi.ChatMemberCountConfig{
+		ChatConfig: tgbotapi.ChatConfig{
+			ChatID: group.TgChatGroupId,
+		},
+	})
+	if chatMembersLen == 1 {
+		log.Printf("GroupId %s 群内只剩机器人", group.Id)
+		// 更新群状态
+		group.GameplayStatus = 0
+		db.Save(group)
+		return "", errors.New("群内只剩机器人")
+	}
 
 	redisKey := fmt.Sprintf(RedisCurrentIssueNumberKey, group.Id)
 	// 删除当前期号和对话ID
