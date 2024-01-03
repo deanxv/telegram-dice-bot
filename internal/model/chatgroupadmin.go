@@ -39,7 +39,13 @@ func QueryChatGroupAdminByChatGroupIdAndTgUserId(db *gorm.DB, chatGroupId string
 func ListChatGroupAdminByAdminTgUserId(db *gorm.DB, adminTgUserId int64) ([]*ChatGroupAdmin, error) {
 	var chatGroupAdmins []*ChatGroupAdmin
 
-	result := db.Where("admin_tg_user_id = ?", adminTgUserId).Find(&chatGroupAdmins).Limit(100)
+	result := db.Model(&ChatGroupAdmin{}).
+		Select("chat_group_admins.*").
+		Joins("left join chat_groups on chat_groups.id = chat_group_admins.chat_group_id").
+		Where("chat_group_admins.admin_tg_user_id = ? and chat_groups.chat_group_status = 'NORMAL'", adminTgUserId).
+		Limit(100).
+		Find(&chatGroupAdmins)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}

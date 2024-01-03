@@ -182,7 +182,7 @@ func buildAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTex
 
 	// 查询当前消息来源人关联的群聊
 	chatGroupAdmins, err := model.ListChatGroupAdminByAdminTgUserId(db, fromUser.ID)
-	if len(chatGroupAdmins) == 0 {
+	if len(chatGroupAdmins) == 0 && err == nil {
 		sendMsg = tgbotapi.NewEditMessageText(chatId, messageId, "您暂无管理的群!")
 	} else if err != nil {
 		log.Printf("TgUserId %v 查询管理群列表异常 %s ", chatId, err.Error())

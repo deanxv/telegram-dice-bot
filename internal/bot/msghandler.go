@@ -20,7 +20,7 @@ func handleMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			go handleGroupMigrateFromChatID(bot, message)
 			go handleGroupNewChatTitle(bot, message)
 			go handleGroupNewMembers(bot, message)
-			go handleGroupLeftChatMember(message)
+			go handleGroupLeftChatMember(bot, message)
 			go handleGroupText(bot, message)
 		} else if message.Chat.IsPrivate() {
 			handlePrivateText(bot, message)

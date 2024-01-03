@@ -354,7 +354,7 @@ func handleGroupNewChatTitle(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	}
 }
 
-func handleGroupLeftChatMember(message *tgbotapi.Message) {
+func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 检查是否有人离开群组
 	if message.LeftChatMember != nil {
 		tgChatGroupId := message.Chat.ID
@@ -383,15 +383,15 @@ func handleGroupLeftChatMember(message *tgbotapi.Message) {
 		} else if err != nil {
 			log.Printf("查询异常 err %s", err.Error())
 			return
-		}
-
-		// 更新该用户状态为离开
-		chatGroupUser.IsLeft = 1
-		result := tx.Save(&chatGroupUser)
-		if result.Error != nil {
-			log.Println("更新用户状态异常:", result.Error)
-			tx.Rollback()
-			return
+		} else {
+			// 更新该用户状态为离开
+			chatGroupUser.IsLeft = 1
+			result := tx.Save(&chatGroupUser)
+			if result.Error != nil {
+				log.Println("更新用户状态异常:", result.Error)
+				tx.Rollback()
+				return
+			}
 		}
 
 		chatGroupAdmin, err := model.QueryChatGroupAdminByChatGroupIdAndTgUserId(tx, chatGroup.Id, leftUser.ID)
@@ -415,7 +415,6 @@ func handleGroupLeftChatMember(message *tgbotapi.Message) {
 				tx.Rollback()
 			}
 		}
-
 	}
 }
 

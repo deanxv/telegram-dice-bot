@@ -36,7 +36,7 @@ func (c *ChatGroup) Create(db *gorm.DB) error {
 }
 
 func UpdateChatGroupStatusByTgChatId(db *gorm.DB, chatGroup *ChatGroup) (*ChatGroup, error) {
-	result := db.Model(&ChatGroup{}).Where("tg_chat_group_id = ?", chatGroup.TgChatGroupId).Update("group_status", chatGroup.ChatGroupStatus)
+	result := db.Model(&ChatGroup{}).Where("tg_chat_group_id = ?", chatGroup.TgChatGroupId).Update("chat_group_status", chatGroup.ChatGroupStatus)
 	if result.Error != nil {
 		return nil, result.Error
 	}
