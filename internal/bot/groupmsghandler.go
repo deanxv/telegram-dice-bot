@@ -239,7 +239,7 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 						GameplayType:     enums.QuickThere.Value,
 						GameDrawCycle:    1,
 						GameplayStatus:   0,
-						ChatGroupStatus:  enums.Normal.Value,
+						ChatGroupStatus:  enums.GroupNormal.Value,
 						CreateTime:       time.Now().Format("2006-01-02 15:04:05"),
 					}
 					err = chatGroup.Create(tx)
@@ -277,7 +277,7 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 					return
 				} else {
 					// 更新原有配置状态为正常
-					chatGroup.ChatGroupStatus = enums.Normal.Value
+					chatGroup.ChatGroupStatus = enums.GroupNormal.Value
 					result := db.Save(&chatGroup)
 					if result.Error != nil {
 						log.Printf("群TgChatId %v 更新原有配置异常 %s", chatId, err.Error())

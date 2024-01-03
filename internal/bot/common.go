@@ -38,10 +38,25 @@ func blockedOrKicked(err error, chatId int64) {
 		} else if strings.Contains(err.Error(), "Forbidden: bot was kicked") {
 			log.Printf("The bot was kicked ChatId: %v", chatId)
 			// 对话已被踢出群聊 修改群配置
-			_, err := model.UpdateChatGroupStatusByTgChatId(db, &model.ChatGroup{
+			chatGroupUpdate := &model.ChatGroup{
 				TgChatGroupId:   chatId,
-				ChatGroupStatus: enums.Kicked.Value,
-			})
+				ChatGroupStatus: enums.GroupKicked.Value,
+				GameplayStatus:  0,
+			}
+			_, err := chatGroupUpdate.UpdateGameplayStatusAndChatGroupStatusByTgChatId(db)
+			if err != nil {
+				log.Printf("群配置修改失败 TgChatId: %v", chatId)
+				return
+			}
+		} else if strings.Contains(err.Error(), "Forbidden: the group chat was deleted") {
+			log.Printf("the group chat was deleted: %v", chatId)
+			// 群组被删除 修改群配置
+			chatGroupUpdate := &model.ChatGroup{
+				TgChatGroupId:   chatId,
+				ChatGroupStatus: enums.GroupDeleted.Value,
+				GameplayStatus:  0,
+			}
+			_, err := chatGroupUpdate.UpdateGameplayStatusAndChatGroupStatusByTgChatId(db)
 			if err != nil {
 				log.Printf("群配置修改失败 TgChatId: %v", chatId)
 				return

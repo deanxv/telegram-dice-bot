@@ -43,6 +43,20 @@ func UpdateChatGroupStatusByTgChatId(db *gorm.DB, chatGroup *ChatGroup) (*ChatGr
 	return chatGroup, nil
 }
 
+func (c *ChatGroup) UpdateGameplayStatusAndChatGroupStatusByTgChatId(db *gorm.DB) (*ChatGroup, error) {
+
+	result := db.Model(&ChatGroup{}).Where("tg_chat_group_id = ?", c.TgChatGroupId).
+		Updates(map[string]interface{}{
+			"ChatGroupStatus": c.ChatGroupStatus,
+			"GameplayStatus":  c.GameplayStatus,
+		})
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return c, nil
+}
+
 func QueryChatGroupByTgChatId(db *gorm.DB, tgChatId int64) (*ChatGroup, error) {
 	var chatGroup *ChatGroup
 	result := db.Where("tg_chat_group_id = ?", tgChatId).First(&chatGroup)

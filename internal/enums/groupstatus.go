@@ -18,9 +18,9 @@ func newGroupStatus(value string, name string) GroupStatus {
 
 // 使用构造函数定义枚举值
 var (
-	Normal = newGroupStatus("NORMAL", "正常")
-	Kicked = newGroupStatus("KICKED", "踢出")
-	//Disband = newGroupStatus("DISBAND", "解散")
+	GroupNormal  = newGroupStatus("NORMAL", "正常")
+	GroupKicked  = newGroupStatus("KICKED", "踢出")
+	GroupDeleted = newGroupStatus("DELETED", "解散")
 )
 
 // GetGroupStatus 通过 value 获取枚举项
