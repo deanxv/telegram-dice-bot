@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"os"
 	"telegram-dice-bot/internal/database"
 	"telegram-dice-bot/internal/enums"
@@ -50,11 +50,11 @@ func initGameTask(bot *tgbotapi.BotAPI) {
 
 	chatGroups, err := chatGroup.ListByGameplayStatus(db)
 	if len(chatGroups) == 0 {
-		log.Println("暂无可开启的群配置")
+		logrus.Println("暂无可开启的群配置")
 		return
 	}
 	if err != nil {
-		log.Fatal("初始化任务失败:", err)
+		logrus.Fatal("初始化任务失败:", err)
 	}
 	for _, group := range chatGroups {
 		// 查询当前对话在缓存中是否有未执行的任务
@@ -62,18 +62,18 @@ func initGameTask(bot *tgbotapi.BotAPI) {
 		issueNumberResult := redisDB.Get(redisDB.Context(), redisKey)
 		if errors.Is(issueNumberResult.Err(), redis.Nil) || issueNumberResult == nil {
 			// 没有未开奖的任务，开始新的期号
-			log.Printf("键 %s 不存在", redisKey)
+			logrus.Printf("键 %s 不存在", redisKey)
 			issueNumber := time.Now().Format("20060102150405")
 
 			go gameTaskStart(bot, group, issueNumber)
 			continue
 		} else if issueNumberResult.Err() != nil {
-			log.Println("获取值时发生错误:", issueNumberResult.Err())
+			logrus.Println("获取值时发生错误:", issueNumberResult.Err())
 			continue
 		} else {
 			// 有未开奖的任务
 			result, _ := issueNumberResult.Result()
-			log.Printf("有未开奖的任务期号:%s", result)
+			logrus.Printf("有未开奖的任务期号:%s", result)
 			go gameTaskStart(bot, group, result)
 			continue
 		}
@@ -84,52 +84,52 @@ func initDB() {
 	var err error
 	db, err = database.InitDB(os.Getenv(database.DBConnectionString))
 	if err != nil {
-		log.Fatal("连接数据库失败:", err)
+		logrus.Fatal("连接数据库失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.ChatGroup{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.ChatGroupAdmin{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.QuickThereConfig{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.QuickThereLotteryRecord{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.ChatGroupUser{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.QuickThereBetRecord{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.LotteryRecord{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	err = db.AutoMigrate(&model.BetRecord{})
 	if err != nil {
-		log.Fatal("自动迁移表结构失败:", err)
+		logrus.Fatal("自动迁移表结构失败:", err)
 	}
 
 	redisDB, err = database.InitRedisDB(os.Getenv(database.RedisDBConnectionString))
 	if err != nil {
-		log.Fatal("连接Redis数据库失败:", err)
+		logrus.Fatal("连接Redis数据库失败:", err)
 	}
 
 }
@@ -137,10 +137,12 @@ func initDB() {
 func initTelegramBot() *tgbotapi.BotAPI {
 	bot, err := tgbotapi.NewBotAPI(os.Getenv(TelegramAPIToken))
 	if err != nil {
-		log.Panic(err)
+		logrus.Panic(err)
 	}
 
 	bot.Debug = false
-	log.Printf("已授权帐户 %s", bot.Self.UserName)
+	logrus.WithFields(logrus.Fields{
+		"userName": bot.Self.UserName,
+	}).Infof("机器人已授权")
 	return bot
 }

@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 
@@ -37,7 +37,7 @@ func initGenerator() {
 	}
 	flake := sonyflake.NewSonyflake(st)
 	if flake == nil {
-		log.Fatalf("sonyflake not created")
+		logrus.Fatalf("sonyflake not created")
 	}
 	generator = &SnowflakeGenerator{
 		flake: flake,

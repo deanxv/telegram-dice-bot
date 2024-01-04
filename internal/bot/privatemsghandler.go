@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"strconv"
 	"strings"
 	"telegram-dice-bot/internal/common"
@@ -29,7 +29,10 @@ func handlePrivateStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 	member, err := getChatMember(bot, chatId, fromUser.ID)
 
 	if err != nil {
-		log.Println("获取聊天成员异常", err)
+		logrus.WithFields(logrus.Fields{
+			"chatId":     chatId,
+			"fromUserId": fromUser.ID,
+		}).Error("获取聊天成员异常")
 		return
 	}
 
@@ -51,17 +54,25 @@ func handlePrivateText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	redisKey := fmt.Sprintf(RedisBotPrivateChatCacheKey, userId)
 	result := redisDB.Get(redisDB.Context(), redisKey)
 	if errors.Is(result.Err(), redis.Nil) || result == nil {
-		//log.Printf("键 %s 不存在 [当前机器人暂无对话状态]", redisKey)
+		//logrus.WithFields(logrus.Fields{
+		//	"redisKey": redisKey,
+		//}).Info("当前机器人暂无对话状态")
 		return
 	} else if result.Err() != nil {
-		log.Println("获取值时发生错误: [当前机器人对话状态查询异常]", result.Err())
+		logrus.WithFields(logrus.Fields{
+			"redisKey": redisKey,
+			"err":      result.Err(),
+		}).Error("获取机器人对话状态缓存异常")
 		return
 	} else {
 		var botPrivateChatCache common.BotPrivateChatCache
 		botPrivateChatCacheString, _ := result.Result()
 		err := json.Unmarshal([]byte(botPrivateChatCacheString), &botPrivateChatCache)
 		if err != nil {
-			log.Printf("BotPrivateChatCache 解析异常 botPrivateChatCacheString %s err %s", botPrivateChatCacheString, result.Err())
+			logrus.WithFields(logrus.Fields{
+				"botPrivateChatCacheString": botPrivateChatCacheString,
+				"err":                       result.Err(),
+			}).Error("BotPrivateChatCache 解析异常")
 			return
 		}
 		if enums.WaitGameDrawCycle.Value == botPrivateChatCache.ChatStatus {
@@ -100,7 +111,7 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 		operator = "+"
 		index = strings.Index(text, "+")
 	} else {
-		log.Println("未知的运算符")
+		logrus.WithField("text", text).Warn("当前对话状态为[转让积分] 用户输入内容非指定格式")
 		return
 	}
 
@@ -111,7 +122,7 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	updateBalanceStr := text[index+1:]
 	updateBalance, err := strconv.ParseFloat(updateBalanceStr, 64)
 	if err != nil {
-		log.Printf("updateBalance转int异常 err %s", err.Error())
+		logrus.WithField("updateBalanceStr", updateBalanceStr).Error("updateBalance转int异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分存在非法字符:%s", updateBalanceStr))
 		return
 	}
@@ -123,7 +134,11 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	}
 	groupUser, err := chatGroupUser.QueryByIdAndChatGroupId(db)
 	if err != nil {
-		log.Println("查询用户信息异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupUserId": chatGroupUserId,
+			"ChatGroupId":     botPrivateChatCache.ChatGroupId,
+			"err":             err,
+		}).Warn("查询用户信息异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
@@ -136,7 +151,10 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	}
 	group, err := model.QueryChatGroupById(db, chatGroup.Id)
 	if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroup.Id, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("查找群配置信息异常")
 		return
 	}
 
@@ -153,7 +171,10 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	}
 	sendGroupUser, err := sendChatGroupUser.QueryByTgUserIdAndChatGroupId(db)
 	if err != nil {
-		log.Println("查询用户信息异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+		}).Warn("未查询到用户信息")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
@@ -221,7 +242,10 @@ func updateQuickThereTripletOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message
 	// 校验当前对话人是否为该群管理员
 	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": botPrivateChatCache.ChatGroupId,
+			"tgUserId":    tgUserId,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -239,7 +263,10 @@ func updateQuickThereTripletOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message
 
 	err = quickThereConfig.UpdateTripletOddsByChatGroupId(db)
 	if err != nil {
-		log.Printf("设置快三豹子倍率异常 %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": botPrivateChatCache.ChatGroupId,
+			"TripletOdds": tripletOdds,
+		}).Error("设置快三豹子倍率异常")
 		return
 	}
 
@@ -265,7 +292,10 @@ func updateQuickThereSimpleOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message,
 	// 校验当前对话人是否为该群管理员
 	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": botPrivateChatCache.ChatGroupId,
+			"tgUserId":    tgUserId,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -283,7 +313,10 @@ func updateQuickThereSimpleOdds(bot *tgbotapi.BotAPI, message *tgbotapi.Message,
 
 	err = quickThereConfig.UpdateSimpleOddsByChatGroupId(db)
 	if err != nil {
-		log.Printf("设置快三简易倍率异常 %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": botPrivateChatCache.ChatGroupId,
+			"SimpleOdds":  simpleOdds,
+		}).Error("设置快三简易倍率异常")
 		return
 	}
 
@@ -308,7 +341,10 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	// 校验当前对话人是否为该群管理员
 	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": botPrivateChatCache.ChatGroupId,
+			"tgUserId":    tgUserId,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -326,7 +362,9 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 		operator = "="
 		index = strings.Index(text, "=")
 	} else {
-		log.Println("未知的运算符")
+		logrus.WithFields(logrus.Fields{
+			"text": text,
+		}).Warn("未知的运算符")
 		return
 	}
 
@@ -337,7 +375,10 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	updateBalanceStr := text[index+1:]
 	updateBalance, err := strconv.ParseFloat(updateBalanceStr, 64)
 	if err != nil {
-		log.Printf("updateBalance转int异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"updateBalanceStr": updateBalanceStr,
+			"err":              err,
+		}).Error("updateBalance转int异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分存在非法字符:%s", updateBalanceStr))
 		return
 	}
@@ -348,7 +389,10 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	}
 	groupUser, err := chatGroupUser.QueryById(db)
 	if err != nil {
-		log.Println("查询用户信息异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupUserId": chatGroupUserId,
+			"err":             err,
+		}).Warn("查询用户信息异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
 		return
 	}
@@ -359,7 +403,10 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 	}
 	group, err := model.QueryChatGroupById(db, chatGroup.Id)
 	if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroup.Id, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": groupUser.ChatGroupId,
+			"err":         err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
@@ -421,7 +468,10 @@ func queryUser(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCa
 	// 校验当前对话人是否为该群管理员
 	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": botPrivateChatCache.ChatGroupId,
+			"tgUserId":    tgUserId,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -440,7 +490,10 @@ func queryUser(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivateChatCa
 		blockedOrKicked(err, chatId)
 		return
 	} else if err != nil {
-		log.Println("查询异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": chatGroupUser.ChatGroupId,
+			"Username":    chatGroupUser.Username,
+		}).Error("群id+用户名查找群成员异常")
 	} else {
 		// 查询到记录
 		msgConfig := tgbotapi.NewMessage(chatId, fmt.Sprintf("用户ID:%v\n用户名称:%s\n积分余额:%.2f", groupUser.Id, groupUser.Username, groupUser.Balance))
@@ -463,13 +516,16 @@ func updateGameDrawCycle(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPri
 	// 校验当前对话人是否为该群管理员
 	err := checkGroupAdmin(botPrivateChatCache.ChatGroupId, tgUserId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", botPrivateChatCache.ChatGroupId, tgUserId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": botPrivateChatCache.ChatGroupId,
+			"tgUserId":    tgUserId,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
 	drawCycle, err := strconv.Atoi(text)
 	if err != nil {
-		log.Printf("drawCycle转int异常 err %s", err.Error())
+		logrus.WithField("err", err).Error("drawCycle转int异常")
 		return
 	}
 
@@ -487,7 +543,10 @@ func updateGameDrawCycle(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPri
 
 	err = chatGroup.UpdateGameDrawCycleById(db)
 	if err != nil {
-		log.Printf("设置开奖周期异常 %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId":   botPrivateChatCache.ChatGroupId,
+			"GameDrawCycle": drawCycle,
+		}).Error("设置开奖周期异常")
 		return
 	}
 

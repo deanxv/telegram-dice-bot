@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"telegram-dice-bot/internal/enums"
 	"telegram-dice-bot/internal/model"
 	"telegram-dice-bot/internal/utils"
@@ -20,7 +20,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 		},
 	})
 	if chatMembersLen == 1 {
-		log.Printf("GroupId %s 群内只剩机器人", group.Id)
+		logrus.WithField("GroupId", group.Id).Warn("群内只剩机器人")
 		// 更新群状态
 		group.GameplayStatus = 0
 		db.Save(group)
@@ -31,7 +31,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 	// 删除当前期号和对话ID
 	err = redisDB.Del(redisDB.Context(), redisKey).Err()
 	if err != nil {
-		log.Println("删除当前期号和对话ID异常:", err)
+		logrus.WithField("redisKey", redisKey).Error("删除当前期号和对话ID异常")
 		return "", err
 	}
 
@@ -52,14 +52,17 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 	}
 	message, err := formatMessage(diceValues[0], diceValues[1], diceValues[2], count, singleOrDouble, bigOrSmall, triplet, issueNumber)
 	if err != nil {
-		log.Printf("issueNumber %s 开奖结果消息格式化异常", issueNumber)
+		logrus.WithFields(logrus.Fields{
+			"issueNumber": issueNumber,
+			"err":         err,
+		}).Warn("开奖结果消息格式化异常")
 	}
 
 	tx := db.Begin()
 
 	id, err := utils.NextID()
 	if err != nil {
-		log.Println("SnowFlakeId create error")
+		logrus.Error("SnowFlakeId create error")
 		return "", err
 	}
 
@@ -73,7 +76,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 	}
 	err = record.Create(tx)
 	if err != nil {
-		log.Printf("开奖记录插入异常 group.Id %v issueNumber %v", group.Id, issueNumber)
+		logrus.WithField("err", err).Error("开奖记录插入异常")
 		tx.Rollback()
 		return "", err
 	}
@@ -95,7 +98,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 
 	err = lotteryRecord.Create(tx)
 	if err != nil {
-		log.Printf("开奖记录插入异常 group.Id %v issueNumber %v", group.Id, issueNumber)
+		logrus.WithField("err", err).Error("开奖记录插入异常")
 		tx.Rollback()
 		return "", err
 	}
@@ -132,7 +135,7 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 	// 设置新的期号和对话ID
 	err = redisDB.Set(redisDB.Context(), redisKey, nextIssueNumber, 0).Err()
 	if err != nil {
-		log.Println("存储新期号和对话ID异常:", err)
+		logrus.WithField("err", err).Warn("存储新期号和对话ID异常")
 	}
 
 	// 遍历下注记录，计算竞猜结果
@@ -144,13 +147,20 @@ func quickThereTask(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber st
 		}
 		quickThereBetRecords, err := quickThereBetRecord.ListByChatGroupIdAndIssueNumber(db)
 		if err != nil {
-			log.Println("获取用户下注记录异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"ChatGroupId": group.Id,
+				"IssueNumber": issueNumber,
+				"err":         err,
+			}).Error("获取用户下注记录异常")
 			return
 		}
 		// 查询此群的快三配置
 		quickThereConfig, err := model.QueryQuickThereConfigByChatGroupId(db, group.Id)
 		if err != nil {
-			log.Printf("ChatGroupId %v 查询群的快三配置异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"ChatGroupId": group.Id,
+				"err":         err,
+			}).Error("查询群的快三配置异常")
 			return
 		}
 
@@ -171,7 +181,7 @@ func rollDice(bot *tgbotapi.BotAPI, chatID int64, numDice int) ([]int, error) {
 	for i := 0; i < numDice; i++ {
 		diceMsg, err := bot.Send(diceConfig)
 		if err != nil {
-			log.Println("发送骰子消息异常:", err)
+			logrus.WithField("err", err).Error("发送骰子消息异常")
 			return nil, err
 		}
 		diceValues[i] = diceMsg.Dice.Value
@@ -216,12 +226,16 @@ func formatMessage(valueA int, valueB int, valueC int, count int, singleOrDouble
 
 	singleOrDoubleType, b := enums.GetGameLotteryType(singleOrDouble)
 	if !b {
-		log.Printf("singleOrDouble %s 开奖结果映射异常", singleOrDouble)
+		logrus.WithFields(logrus.Fields{
+			"singleOrDouble": singleOrDouble,
+		}).Error("开奖结果映射异常")
 		return "", errors.New("开奖结果映射异常")
 	}
 	bigOrSmallType, b := enums.GetGameLotteryType(bigOrSmall)
 	if !b {
-		log.Printf("bigOrSmall %s 开奖结果映射异常", bigOrSmall)
+		logrus.WithFields(logrus.Fields{
+			"bigOrSmall": bigOrSmall,
+		}).Error("开奖结果映射异常")
 		return "", errors.New("开奖结果映射异常")
 	}
 
@@ -246,20 +260,30 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 	chatGroupUser := &model.ChatGroupUser{Id: betRecord.ChatGroupUserId}
 	chatGroupUser, err := chatGroupUser.QueryById(db)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("ChatGroupUserId %v 未查询到该用户信息 err %s ", betRecord.ChatGroupUserId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupUserId": betRecord.ChatGroupUserId,
+		}).Error("未查询到该用户信息")
 		return
 	} else if err != nil {
-		log.Printf("ChatGroupUserId %v 查询该用户信息异常 err %s", betRecord.ChatGroupUserId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupUserId": betRecord.ChatGroupUserId,
+			"err":             err,
+		}).Error("查询该用户信息异常")
 		return
 	}
 
 	// 查找该用户所属群
 	ChatGroup, err := model.QueryChatGroupById(db, chatGroupUser.ChatGroupId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 未查询到群信息 err %s ", chatGroupUser.ChatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": chatGroupUser.ChatGroupId,
+		}).Error("未查询到群信息")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查询群信息异常 err %s ", chatGroupUser.ChatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"ChatGroupId": chatGroupUser.ChatGroupId,
+			"err":         err,
+		}).Error("查询群信息异常")
 		return
 	}
 
@@ -294,7 +318,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 
 	result := tx.Save(&chatGroupUser)
 	if result.Error != nil {
-		log.Println("更新用户余额异常:", result.Error)
+		logrus.WithField("err", result.Error).Error("更新用户余额异常")
 		tx.Rollback()
 		return
 	}
@@ -304,7 +328,7 @@ func updateBalanceByQuickThere(bot *tgbotapi.BotAPI, quickThereConfig *model.Qui
 	betRecord.UpdateTime = time.Now().Format("2006-01-02 15:04:05")
 	result = tx.Save(&betRecord)
 	if result.Error != nil {
-		log.Println("更新下注记录异常:", result.Error)
+		logrus.WithField("err", result.Error).Error("更新下注记录异常")
 		tx.Rollback()
 		return
 	}

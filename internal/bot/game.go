@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
+	"github.com/sirupsen/logrus"
 	"telegram-dice-bot/internal/enums"
 	"telegram-dice-bot/internal/model"
 	"time"
@@ -36,11 +36,11 @@ func gameStart(bot *tgbotapi.BotAPI, group *model.ChatGroup) {
 		// 存储当前期号和对话ID
 		err = redisDB.Set(redisDB.Context(), redisKey, issueNumber, 0).Err()
 		if err != nil {
-			log.Println("存储新期号和对话ID异常:", err)
+			logrus.WithField("err", err).Error("存储新期号和对话ID异常")
 			return
 		}
 	} else if issueNumberResult.Err() != nil {
-		log.Println("获取值时发生异常:", issueNumberResult.Err())
+		logrus.WithField("err", issueNumberResult.Err()).Error("redis获取期号异常")
 		return
 	} else {
 		result, _ := issueNumberResult.Result()
@@ -85,7 +85,7 @@ func gameTaskStart(bot *tgbotapi.BotAPI, group *model.ChatGroup, issueNumber str
 					return
 				}
 			case <-stopCh:
-				log.Printf("已关闭任务 chatGroupId %v", group.Id)
+				logrus.WithField("chatGroupId", group.Id).Info("已关闭任务")
 				return
 			}
 		}
@@ -98,10 +98,10 @@ func gameTaskStop(group *model.ChatGroup) {
 	defer chatLock.Unlock()
 
 	if stopFlag, ok := stopTaskFlags[group.Id]; ok {
-		log.Printf("停止聊天ID的任务：%v", group.Id)
+		logrus.WithField("groupId", group.Id).Info("停止聊天ID的任务")
 		close(stopFlag)
 		delete(stopTaskFlags, group.Id)
 	} else {
-		log.Printf("没有要停止的聊天ID的任务：%v", group.Id)
+		logrus.WithField("groupId", group.Id).Warn("没有要停止的聊天ID的任务")
 	}
 }

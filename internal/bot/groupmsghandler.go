@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"strconv"
 	"strings"
 	"telegram-dice-bot/internal/enums"
@@ -22,7 +22,10 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	chatMember, err := getChatMember(bot, chatId, user.ID)
 	if err != nil {
-		log.Println("获取聊天成员异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"chatId":     chatId,
+			"fromUserId": user.ID,
+		}).Error("获取聊天成员异常")
 		return
 	}
 
@@ -52,10 +55,15 @@ func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, fromChatId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 群未初始化则不处理
-		log.Printf("群未初始化")
+		logrus.WithFields(logrus.Fields{
+			"fromChatId": fromChatId,
+		}).Warn("未查询到群配置信息 [未初始化]")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", fromChatId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"fromChatId": fromChatId,
+			"err":        err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
@@ -64,7 +72,10 @@ func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	if chatGroup.GameplayType == enums.QuickThere.Value {
 		quickThereConfig, err := model.QueryQuickThereConfigByChatGroupId(db, chatGroup.Id)
 		if err != nil {
-			log.Printf("ChatGroupId %v 查询群的快三配置异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"chatGroupId": chatGroup.Id,
+				"err":         err,
+			}).Error("群的快三配置异常")
 			return
 		}
 		gameHelp = fmt.Sprintf("当前倍率:\n简易%v倍丨豹子%v倍\n\n支持竞猜类型: 单、双、大、小、豹子\n竞猜示例(竞猜类型-单,下注积分-20):\n #单 20", quickThereConfig.SimpleOdds, quickThereConfig.TripletOdds)
@@ -72,7 +83,10 @@ func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	gameplayType, b := enums.GetGameplayType(chatGroup.GameplayType)
 	if !b {
-		log.Printf("GameplayType %v 群配置玩法查询异常", chatGroup.GameplayType)
+		logrus.WithFields(logrus.Fields{
+			"GameplayType": chatGroup.GameplayType,
+			"err":          err,
+		}).Error("群配置玩法映射查询异常")
 		return
 	}
 
@@ -100,7 +114,9 @@ func handleHelpCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		deleteMsg := tgbotapi.NewDeleteMessage(fromChatId, messageID)
 		_, err := bot.Request(deleteMsg)
 		if err != nil {
-			log.Println("删除消息异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("删除消息异常")
 		}
 	}(sentMsg.MessageID)
 }
@@ -112,9 +128,14 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", tgChatId)
+		logrus.WithFields(logrus.Fields{
+			"tgChatId": tgChatId,
+		}).Warn("未查询到群配置 [未初始化]")
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", tgChatId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"tgChatId": tgChatId,
+			"err":      err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -133,7 +154,10 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		blockedOrKicked(err, tgChatId)
 		return
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"tgChatId": tgChatId,
+			"err":      err,
+		}).Error("群配置查询异常")
 		return
 	}
 	// 查询下注记录
@@ -141,7 +165,10 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	betRecord := &model.BetRecord{ChatGroupUserId: chatGroupUser.Id}
 	betRecords, err := betRecord.ListByChatGroupUserId(db)
 	if err != nil {
-		log.Printf("查询下注记录 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupUserId": chatGroupUser.Id,
+			"err":             err,
+		}).Error("查询下注记录异常")
 		return
 	}
 	sendMsg := tgbotapi.NewMessage(tgChatId, "")
@@ -150,9 +177,6 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	if len(betRecords) == 0 {
 		// 下注记录为空
 		sendMsg.Text = "您还没有下注记录哦!"
-	} else if err != nil {
-		log.Println("查询下注记录异常", err)
-		return
 	} else {
 		sendMsg.Text = "您的近10期下注记录如下:\n"
 
@@ -166,7 +190,10 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 				}
 				quickThereBetRecord, err := quickThereBetRecord.QueryById(db)
 				if err != nil {
-					log.Printf("RecordId %v 快三下注记录查询异常", record.Id)
+					logrus.WithFields(logrus.Fields{
+						"recordId": record.Id,
+						"err":      err,
+					}).Error("查询快三下注记录异常")
 					return
 				}
 
@@ -200,7 +227,9 @@ func handleMyHistoryCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			deleteMsg := tgbotapi.NewDeleteMessage(tgChatId, messageID)
 			_, err := bot.Request(deleteMsg)
 			if err != nil {
-				log.Println("删除消息异常:", err)
+				logrus.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("删除消息异常")
 			}
 		}(sentMsg.MessageID)
 
@@ -218,17 +247,20 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			if newMember.UserName == bot.Self.UserName {
 
 				tx := db.Begin()
-
-				log.Printf("Bot was added to a group: %s", message.Chat.Title)
+				logrus.WithFields(logrus.Fields{
+					"chatTitle": chatTitle,
+				}).Info("Bot was added to a group")
 				// 查找是否原来关联过该群
 				chatGroup, err := model.QueryChatGroupByTgChatId(tx, chatId)
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					log.Printf("群TgChatId %v 该群未初始化过配置 ", chatId)
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+					}).Warn("未查询到群配置信息 [未初始化]")
 
 					// 初始化群配置
 					chatGroupId, err := utils.NextID()
 					if err != nil {
-						log.Println("SnowFlakeId create error")
+						logrus.Error("SnowFlakeId create error")
 						return
 					}
 
@@ -244,7 +276,9 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 					}
 					err = chatGroup.Create(tx)
 					if err != nil {
-						log.Printf("群TgChatId %v 初始化群配置异常 %s", chatId, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"err": err,
+						}).Error("初始化群配置异常")
 						tx.Rollback()
 						return
 					}
@@ -259,7 +293,9 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 					err = quickThereConfig.Create(tx)
 					if err != nil {
-						log.Printf("群TgChatId %v 初始化快三配置异常 %s", chatId, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"err": err,
+						}).Error("初始化快三配置异常")
 						tx.Rollback()
 						return
 					}
@@ -270,20 +306,29 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 						tx.Rollback()
 					}
 
-					log.Printf("群TgChatId %v 该群初始化配置成功 ", chatId)
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+					}).Info("该群初始化配置成功")
 					return
 				} else if err != nil {
-					log.Printf("群TgChatId %v 查找异常 %s", chatId, err.Error())
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+						"err":    err,
+					}).Error("群配置查询异常")
 					return
 				} else {
 					// 更新原有配置状态为正常
 					chatGroup.ChatGroupStatus = enums.GroupNormal.Value
 					result := db.Save(&chatGroup)
 					if result.Error != nil {
-						log.Printf("群TgChatId %v 更新原有配置异常 %s", chatId, err.Error())
+						logrus.WithFields(logrus.Fields{
+							"err": err,
+						}).Error("更新配置异常")
 						return
 					}
-					log.Printf("群TgChatId %v 该群已被初始化过配置", chatId)
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+					}).Warn("该群已被初始化过配置")
 					return
 				}
 
@@ -292,9 +337,14 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 				chatGroup, err := model.QueryChatGroupByTgChatId(db, chatId)
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					// 群未初始化则不处理
-					log.Printf("群未初始化")
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+					}).Warn("未查询到群信息 [未初始化]")
 				} else if err != nil {
-					log.Printf("群TgChatId %v 查找异常 %s", chatId, err.Error())
+					logrus.WithFields(logrus.Fields{
+						"chatId": chatId,
+						"err":    err,
+					}).Error("群信息查询异常")
 					return
 				} else {
 					// 群存在则判断该用户是否已注册
@@ -305,10 +355,17 @@ func handleGroupNewMembers(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 					chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
 
 					if errors.Is(err, gorm.ErrRecordNotFound) {
-						log.Printf("该用户未注册 err %s", err.Error())
+						logrus.WithFields(logrus.Fields{
+							"TgUserId":    newMember.ID,
+							"ChatGroupId": chatGroup.Id,
+						}).Warn("未查询到用户信息")
 						return
 					} else if err != nil {
-						log.Printf("查询异常 err %s", err.Error())
+						logrus.WithFields(logrus.Fields{
+							"TgUserId":    newMember.ID,
+							"ChatGroupId": chatGroup.Id,
+							"err":         err,
+						}).Error("查询用户信息异常")
 						return
 					} else {
 						// 已注册则更新状态为未离开
@@ -329,12 +386,18 @@ func handleGroupMigrateFromChatID(bot *tgbotapi.BotAPI, message *tgbotapi.Messag
 		// 普通群组升级为超级群组
 		chatGroup, err := model.QueryChatGroupByTgChatId(db, oldGroupID)
 		if err != nil {
-			log.Printf("TgChatGroupId %v 群配置查询异常", oldGroupID)
+			logrus.WithFields(logrus.Fields{
+				"oldGroupID": oldGroupID,
+				"err":        err,
+			}).Error("群配置查询异常")
 			return
 		}
 		chatGroup.TgChatGroupId = newSuperGroupID
 		db.Save(&chatGroup)
-		log.Printf("群组 ID 从 %d 更新为 %d", oldGroupID, newSuperGroupID)
+		logrus.WithFields(logrus.Fields{
+			"oldGroupID":      oldGroupID,
+			"newSuperGroupID": newSuperGroupID,
+		}).Info("群组 ID 已更新 [升级为超级群组]")
 	}
 }
 
@@ -345,12 +408,18 @@ func handleGroupNewChatTitle(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		tgChatGroupId := message.Chat.ID
 		chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
 		if err != nil {
-			log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+			logrus.WithFields(logrus.Fields{
+				"tgChatGroupId": tgChatGroupId,
+				"err":           err,
+			}).Error("群配置查询异常")
 			return
 		}
 		chatGroup.TgChatGroupTitle = newChatTitle
 		db.Save(&chatGroup)
-		log.Printf("群组Id %s Title 更新为 %s", chatGroup.Id, newChatTitle)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId":  chatGroup.Id,
+			"newChatTitle": newChatTitle,
+		}).Info("群组Title已更新")
 	}
 }
 
@@ -365,7 +434,10 @@ func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 		// 查询该群的信息
 		chatGroup, err := model.QueryChatGroupByTgChatId(tx, tgChatGroupId)
 		if err != nil {
-			log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+			logrus.WithFields(logrus.Fields{
+				"tgChatGroupId": tgChatGroupId,
+				"err":           err,
+			}).Error("群配置查询异常")
 			tx.Rollback()
 			return
 		}
@@ -378,17 +450,26 @@ func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 
 		chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(tx)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("该用户未注册 err %s", err.Error())
+			logrus.WithFields(logrus.Fields{
+				"TgUserId":    chatGroupUserQuery.TgUserId,
+				"ChatGroupId": chatGroupUserQuery.ChatGroupId,
+			}).Warn("该用户未注册")
 			return
 		} else if err != nil {
-			log.Printf("查询异常 err %s", err.Error())
+			logrus.WithFields(logrus.Fields{
+				"TgUserId":    chatGroupUserQuery.TgUserId,
+				"ChatGroupId": chatGroupUserQuery.ChatGroupId,
+				"err":         err,
+			}).Error("查询用户信息异常")
 			return
 		} else {
 			// 更新该用户状态为离开
 			chatGroupUser.IsLeft = 1
 			result := tx.Save(&chatGroupUser)
 			if result.Error != nil {
-				log.Println("更新用户状态异常:", result.Error)
+				logrus.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("更新用户状态异常")
 				tx.Rollback()
 				return
 			}
@@ -396,7 +477,10 @@ func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 
 		chatGroupAdmin, err := model.QueryChatGroupAdminByChatGroupIdAndTgUserId(tx, chatGroup.Id, leftUser.ID)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("该用户非管理员 err %s", err.Error())
+			logrus.WithFields(logrus.Fields{
+				"tgChatGroupId": chatGroup.Id,
+				"tgUserId":      leftUser.ID,
+			}).Error("该用户非管理员")
 			// 提交事务
 			if err := tx.Commit().Error; err != nil {
 				// 提交事务时出现异常，回滚事务
@@ -404,7 +488,11 @@ func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 			}
 			return
 		} else if err != nil {
-			log.Println("该用户管理员查询异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"tgChatGroupId": chatGroup.Id,
+				"tgUserId":      leftUser.ID,
+				"err":           err,
+			}).Error("管理员用户查询异常")
 			tx.Rollback()
 		} else {
 			// 删除该用户的管理员权限
@@ -428,8 +516,16 @@ func handleBettingText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	// 查询该群的信息
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
-	if err != nil {
-		log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+		}).Warn("未查询到该群配置 [未初始化]")
+		return
+	} else if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+			"err":           err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -441,11 +537,15 @@ func handleBettingText(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			replyMsg.ReplyToMessageID = messageId
 			_, err = bot.Send(replyMsg)
 			if err != nil {
-				log.Println("发送消息异常:", err)
+				logrus.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("发送消息异常")
 				blockedOrKicked(err, tgChatGroupId)
 			}
 		} else if err != nil {
-			log.Println("处理下注信息异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("处理下注信息异常")
 		}
 	}
 }
@@ -477,7 +577,9 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 		registrationMsg.ReplyToMessageID = messageId
 		_, err := bot.Send(registrationMsg)
 		if err != nil {
-			log.Println("功能未开启提示消息异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("功能未开启提示消息异常")
 			blockedOrKicked(err, tgChatGroupId)
 			return false, err
 		}
@@ -488,14 +590,20 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	redisKey := fmt.Sprintf(RedisCurrentIssueNumberKey, chatGroup.Id)
 	issueNumberResult := redisDB.Get(redisDB.Context(), redisKey)
 	if errors.Is(issueNumberResult.Err(), redis.Nil) || issueNumberResult == nil {
-		log.Printf("键 %s 不存在", redisKey)
+		logrus.WithFields(logrus.Fields{
+			"redisKey": redisKey,
+			"err":      err,
+		}).Warn("redis键不存在")
 		replyMsg := tgbotapi.NewMessage(tgChatGroupId, "当前暂无开奖活动!")
 		replyMsg.ReplyToMessageID = messageId
 		_, sendErr := bot.Send(replyMsg)
 		blockedOrKicked(sendErr, tgChatGroupId)
 		return false, nil
 	} else if issueNumberResult.Err() != nil {
-		log.Println("获取值时发生异常:", issueNumberResult.Err())
+		logrus.WithFields(logrus.Fields{
+			"redisKey": redisKey,
+			"err":      err,
+		}).Error("redis获取当前期号异常")
 		return false, nil
 	}
 
@@ -509,7 +617,9 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	})
 
 	if !b && err != nil {
-		log.Println("存储下注记录异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("保存下注记录异常")
 		return false, err
 	}
 	return b, nil
@@ -541,13 +651,19 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 		registrationMsg.ReplyToMessageID = messageId
 		_, sendErr := bot.Send(registrationMsg)
 		if sendErr != nil {
-			log.Println("发送注册提示消息异常:", sendErr)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("发送注册提示消息异常")
 			blockedOrKicked(sendErr, chatId)
 			return false, sendErr
 		}
 		return false, nil
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    chatGroupUserQuery.TgUserId,
+			"ChatGroupId": chatGroupUserQuery.ChatGroupId,
+			"err":         err,
+		}).Error("查询用户信息异常")
 		return false, err
 	} else {
 		// 检查用户余额是否足够
@@ -557,7 +673,9 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 			balanceInsufficientMsg.ReplyToMessageID = messageId
 			_, err := bot.Send(balanceInsufficientMsg)
 			if err != nil {
-				log.Println("您的余额不足提示异常:", err)
+				logrus.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("您的余额不足提示异常")
 				blockedOrKicked(err, chatId)
 				return false, err
 			} else {
@@ -572,7 +690,9 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 
 		result := tx.Save(&chatGroupUser)
 		if result.Error != nil {
-			log.Println("扣除用户余额异常:", result.Error)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("扣除用户余额异常")
 			tx.Rollback()
 			return false, result.Error
 		}
@@ -581,13 +701,16 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 		// 映射下注类型
 		betType, b := enums.GetGameLotteryTypeForName(quickThereBetRecord.BetType)
 		if !b {
-			log.Printf("该下注类型映射异常 betType %s", quickThereBetRecord.BetType)
+			logrus.WithFields(logrus.Fields{
+				"betType": quickThereBetRecord.BetType,
+				"err":     err,
+			}).Error("下注类型映射异常")
 			return false, errors.New("该下注类型映射异常")
 		}
 
 		id, err := utils.NextID()
 		if err != nil {
-			log.Println("SnowFlakeId create error")
+			logrus.Error("SnowFlakeId create error")
 			return false, err
 		}
 
@@ -604,10 +727,12 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 
 		err = betRecord.Create(tx)
 		if err != nil {
-			log.Println("保存下注记录异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("保存下注记录异常")
 			// 如果保存下注记录失败，需要返还用户余额
-			chatGroupUser.Balance += quickThereBetRecord.BetAmount
-			tx.Save(&user)
+			//chatGroupUser.Balance += quickThereBetRecord.BetAmount
+			//tx.Save(&user)
 			tx.Rollback()
 			return false, err
 		}
@@ -627,10 +752,12 @@ func storeQuickThereBetRecord(bot *tgbotapi.BotAPI, chatGroup *model.ChatGroup, 
 
 		err = quickThereBetRecordCreate.Create(tx)
 		if err != nil {
-			log.Println("保存快三下注记录异常:", result.Error)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("保存快三下注记录异常")
 			// 如果保存下注记录失败，需要返还用户余额
-			chatGroupUser.Balance += quickThereBetRecord.BetAmount
-			tx.Save(&user)
+			//chatGroupUser.Balance += quickThereBetRecord.BetAmount
+			//tx.Save(&user)
 			tx.Rollback()
 			return false, result.Error
 		}
@@ -653,7 +780,10 @@ func handleMyCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 查询该群的信息
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
 	if err != nil {
-		log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+			"err":           err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -674,7 +804,11 @@ func handleMyCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			return
 		}
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("群用户查询异常")
 	} else {
 		msgConfig := tgbotapi.NewMessage(tgChatGroupId, fmt.Sprintf("%s 您的积分余额为%.2f", fromUser.FirstName, chatGroupUser.Balance))
 		msgConfig.ReplyToMessageID = messageId
@@ -688,7 +822,9 @@ func handleMyCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			deleteMsg := tgbotapi.NewDeleteMessage(tgChatGroupId, messageID)
 			_, err := bot.Request(deleteMsg)
 			if err != nil {
-				log.Println("删除消息异常:", err)
+				logrus.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("删除消息异常")
 			}
 		}(sentMsg.MessageID)
 	}
@@ -703,7 +839,10 @@ func handleSignCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 查询该群的信息
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
 	if err != nil {
-		log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+			"err":           err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -723,7 +862,11 @@ func handleSignCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		blockedOrKicked(err, tgChatGroupId)
 		return
 	} else if err != nil {
-		log.Println("查询异常:", err)
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("群用户查询异常")
 	} else {
 		// 获取用户对应的互斥锁
 		userLockKey := fmt.Sprintf(ChatGroupUserLockKey, message.Chat.ID, message.From.ID)
@@ -734,7 +877,10 @@ func handleSignCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		if chatGroupUser.SignInTime != "" {
 			signInTime, err := time.Parse("2006-01-02 15:04:05", chatGroupUser.SignInTime)
 			if err != nil {
-				log.Println("时间解析异常:", err)
+				logrus.WithFields(logrus.Fields{
+					"SignInTime": chatGroupUser.SignInTime,
+					"err":        err,
+				}).Error("时间解析异常")
 				return
 			}
 			// 获取当前时间
@@ -752,7 +898,9 @@ func handleSignCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		chatGroupUser.Balance += 1000
 		result := db.Save(&chatGroupUser)
 		if result.Error != nil {
-			log.Println("保存用户信息异常:", result.Error)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("保存用户信息异常")
 			return
 		}
 		msgConfig := tgbotapi.NewMessage(tgChatGroupId, "签到成功！奖励1000积分！")
@@ -770,7 +918,9 @@ func handleRegisterCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 查询该群的信息
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
 	if err != nil {
-		log.Printf("TgChatGroupId %s 群配置查询异常", tgChatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -793,7 +943,9 @@ func handleRegisterCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		}
 		err := chatGroupUser.Create(db)
 		if err != nil {
-			log.Println("用户注册异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("创建用户信息异常")
 		} else {
 			msgConfig := tgbotapi.NewMessage(tgChatGroupId, "注册成功！奖励1000积分！")
 			msgConfig.ReplyToMessageID = messageId
@@ -801,7 +953,11 @@ func handleRegisterCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			blockedOrKicked(err, tgChatGroupId)
 		}
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("查询群用户信息异常")
 	} else {
 		msgConfig := tgbotapi.NewMessage(tgChatGroupId, "请勿重复注册！")
 		msgConfig.ReplyToMessageID = messageId
@@ -822,16 +978,24 @@ func handleGroupReloadCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 
 	administrators, err := bot.GetChatAdministrators(chatConfig)
 	if err != nil {
-		log.Println("无法获取管理员列表:", err)
+		logrus.WithFields(logrus.Fields{
+			"chatId": chatId,
+			"err":    err,
+		}).Error("无法获取管理员列表")
 		return
 	}
 
 	ChatGroup, err := model.QueryChatGroupByTgChatId(db, chatId)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatId)
+		logrus.WithFields(logrus.Fields{
+			"chatId": chatId,
+		}).Error("未查询到群配置信息")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatId": chatId,
+			"err":    err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
@@ -845,7 +1009,9 @@ func handleGroupReloadCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	// 载入新的管理员信息
 	for _, administrator := range administrators {
 		user := administrator.User
-		log.Println(user.UserName)
+		logrus.WithFields(logrus.Fields{
+			"userName": user.UserName,
+		}).Info("管理员信息")
 		if user.UserName == bot.Self.UserName {
 			botIsAdmin = true
 		}
@@ -855,7 +1021,11 @@ func handleGroupReloadCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			CreateTime:    time.Now().Format("2006-01-02 15:04:05"),
 		})
 		if err != nil {
-			log.Printf("群TgChatId %v 初始化管理员信息异常", chatId)
+			logrus.WithFields(logrus.Fields{
+				"ChatGroupId":   ChatGroup.Id,
+				"AdminTgUserId": user.ID,
+				"err":           err,
+			}).Error("初始化管理员信息异常")
 			tx.Rollback()
 			return
 		}

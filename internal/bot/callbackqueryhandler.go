@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"strings"
 	"telegram-dice-bot/internal/common"
 	"telegram-dice-bot/internal/enums"
@@ -86,7 +86,7 @@ func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithField("queryData", query.Data).Error("内联键盘解析异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -94,7 +94,7 @@ func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -104,10 +104,10 @@ func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		logrus.WithField("chatGroupId", chatGroupId).Error("群未初始化过配置")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		logrus.WithField("chatGroupId", chatGroupId).Error("群配置查找异常")
 		return
 	}
 
@@ -122,7 +122,10 @@ func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	// 更新上条消息
 	sendMsg, err := buildAdminGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询管理的群列表异常 %s ", fromUser.ID, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"fromUserId": fromUser.ID,
+			"err":        err,
+		}).Info("查询管理的群列表异常")
 		return
 	}
 
@@ -143,7 +146,10 @@ func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -151,7 +157,7 @@ func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -167,7 +173,11 @@ func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.CallbackTransferBalance.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitTransferBalance.Value,
+			"ChatGroupId": chatGroupId,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -188,7 +198,10 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -196,7 +209,7 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -206,10 +219,15 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+		}).Error("群未初始化过配置")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
@@ -221,10 +239,17 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
 	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("该用户未注册 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+		}).Warn("该用户未注册")
 		return
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("用户查询异常")
 		return
 	}
 
@@ -233,14 +258,18 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	result := db.Save(&chatGroupUser)
 
 	if result.Error != nil {
-		log.Println("保存用户信息异常:", result.Error)
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("保存用户信息异常")
 		return
 	}
 
 	// 更新上条消息
 	sendMsg, err := buildJoinedGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询加入的群列表异常 %s ", fromUser.ID, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("组装加入的群列表异常")
 		return
 	}
 
@@ -263,7 +292,10 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -271,7 +303,7 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -281,10 +313,15 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+		}).Error("未查询到群配置")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -296,10 +333,17 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 
 	chatGroupUser, err := chatGroupUserQuery.QueryByTgUserIdAndChatGroupId(db)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("ChatGroupId %s TgUserId %v 群组中不存在该用户 err %s", chatGroup.Id, fromUser.ID, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+		}).Warn("群组中不存在该用户")
 		return
 	} else if err != nil {
-		log.Printf("查询异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"TgUserId":    fromUser.ID,
+			"ChatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("用户查询异常")
 		return
 	}
 
@@ -311,7 +355,10 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	})
 
 	if err != nil {
-		log.Println("内联键盘回调参数存入redis异常", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroup.Id,
+			"err":         err,
+		}).Error("内联键盘回调参数存入redis异常")
 		return
 	}
 
@@ -344,7 +391,10 @@ func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.C
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -352,7 +402,7 @@ func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.C
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -361,7 +411,10 @@ func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.C
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -374,7 +427,12 @@ func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.C
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitQuickThereTripletOdds.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitQuickThereTripletOdds.Value,
+			"ChatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -395,7 +453,10 @@ func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Ca
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -403,7 +464,7 @@ func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Ca
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -412,7 +473,10 @@ func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Ca
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -425,7 +489,12 @@ func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Ca
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitQuickThereSimpleOdds.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitQuickThereSimpleOdds.Value,
+			"ChatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -443,7 +512,10 @@ func lotteryHistoryCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	// 查询该群历史开奖信息
 	chatGroup, err := model.QueryChatGroupByTgChatId(db, tgChatGroupId)
 	if err != nil {
-		log.Printf("TgChatGroupId %v 群配置查询异常", tgChatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+			"err":           err,
+		}).Error("群配置查询异常")
 		return
 	}
 
@@ -452,7 +524,10 @@ func lotteryHistoryCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 	lotteryRecord := &model.LotteryRecord{ChatGroupId: chatGroup.Id}
 	lotteryRecords, err := lotteryRecord.ListByChatGroupId(db)
 	if err != nil {
-		log.Printf("TgChatGroupId %v 开奖记录查询异常", chatGroup.Id)
+		logrus.WithFields(logrus.Fields{
+			"tgChatGroupId": tgChatGroupId,
+			"err":           err,
+		}).Error("开奖记录查询异常")
 		return
 	}
 	if len(lotteryRecords) == 0 {
@@ -468,7 +543,9 @@ func lotteryHistoryCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 				}
 				quickThereLotteryRecord, err := quickThereLotteryRecord.QueryById(db)
 				if err != nil {
-					log.Printf("IssueNumber %v 快三开奖记录查询异常", record.IssueNumber)
+					logrus.WithFields(logrus.Fields{
+						"IssueNumber": record.IssueNumber,
+					}).Error("快三开奖记录查询异常")
 					return
 				}
 
@@ -506,7 +583,9 @@ func lotteryHistoryCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 		deleteMsg := tgbotapi.NewDeleteMessage(tgChatGroupId, messageID)
 		_, err := bot.Request(deleteMsg)
 		if err != nil {
-			log.Println("删除消息异常:", err)
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("删除消息异常")
 		}
 	}(sentMsg.MessageID)
 }
@@ -519,7 +598,10 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -527,7 +609,7 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -536,7 +618,10 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -552,7 +637,12 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitGameDrawCycle.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitUpdateUserBalance.Value,
+			"ChatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -573,7 +663,10 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -581,7 +674,7 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -590,7 +683,10 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -603,7 +699,12 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", chatId, enums.WaitGameDrawCycle.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitQueryUser.Value,
+			"ChatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -624,7 +725,10 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -632,7 +736,7 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -641,7 +745,10 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -654,7 +761,12 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 	})
 
 	if err != nil {
-		log.Printf("BotChatStatus 设置异常 TgUserID %v ChatStatus %s", fromUser.ID, enums.WaitGameDrawCycle.Value)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"ChatStatus":  enums.WaitGameDrawCycle.Value,
+			"ChatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("BotChatStatus 设置异常")
 		return
 	}
 
@@ -676,7 +788,10 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -684,7 +799,7 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -693,17 +808,25 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
 	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+		}).Error("未查询到群配置信息 [未初始化]")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
@@ -731,14 +854,18 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 	}
 	err = chatGroupUpdate.UpdateChatGroupStatusById(db)
 	if err != nil {
-		log.Printf("更新群配置-游戏状态异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("更新群配置-游戏状态异常")
 		return
 	}
 
 	inlineKeyboardMarkup, err := buildChatGroupInlineKeyboardMarkup(query, chatGroup)
 
 	if err != nil {
-		log.Printf("组装群组配置内联键盘异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("组装群组配置内联键盘异常")
 		return
 	}
 
@@ -762,7 +889,10 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -770,7 +900,7 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -780,7 +910,10 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -791,7 +924,11 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 	})
 
 	if err != nil {
-		log.Println("更新群配置异常", err)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId":  chatGroupId,
+			"GameplayType": gameplayType,
+			"err":          err,
+		}).Error("更新群配置异常")
 		return
 	}
 
@@ -824,7 +961,10 @@ func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -832,7 +972,7 @@ func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -841,7 +981,10 @@ func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v userId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"fromUserID":  fromUser.ID,
+		}).Error("当前对话人非该群管理员")
 		return
 	}
 
@@ -850,7 +993,10 @@ func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	inlineKeyboardRows, err := buildGameplayTypeInlineKeyboardButton(chatGroupId)
 
 	if err != nil {
-		log.Printf("群ChatGroupId %v 组装游戏类型内联键盘异常 %s ", chatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("组装游戏类型内联键盘异常")
 		return
 	}
 
@@ -878,7 +1024,10 @@ func chatGroupConfigCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 
 	queryStringToMap, err := utils.QueryStringToMap(queryString)
 	if err != nil {
-		log.Printf("queryData %v 内联键盘解析异常 ", query.Data)
+		logrus.WithFields(logrus.Fields{
+			"queryData": query.Data,
+			"err":       err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 	callBackDataKey := queryStringToMap["callbackDataKey"]
@@ -886,7 +1035,10 @@ func chatGroupConfigCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
-		log.Printf("内联键盘回调参数redis查询异常")
+		logrus.WithFields(logrus.Fields{
+			"callBackDataKey": callBackDataKey,
+			"err":             err,
+		}).Error("内联键盘回调参数redis查询异常")
 		return
 	}
 
@@ -895,24 +1047,34 @@ func chatGroupConfigCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 	// 校验当前对话人是否为该群管理员
 	err = checkGroupAdmin(chatGroupId, fromUser.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("chatGroupId %v tgUserId %v 当前对话人非该群管理员 ", chatGroupId, fromUser.ID)
+		logrus.WithFields(logrus.Fields{
+			"fromUserId":  fromUser.ID,
+			"chatGroupId": chatGroupId,
+		}).Warn("当前对话人非该群管理员")
 		return
 	}
 
 	chatGroup, err := model.QueryChatGroupById(db, chatGroupId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("群TgChatId %v 该群未初始化过配置 ", chatGroupId)
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+		}).Error("未查询到群配置信息")
 		return
 	} else if err != nil {
-		log.Printf("群TgChatId %v 查找异常 %s", chatGroupId, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"chatGroupId": chatGroupId,
+			"err":         err,
+		}).Error("群配置信息查询异常")
 		return
 	}
 
 	inlineKeyboardMarkup, err := buildChatGroupInlineKeyboardMarkup(query, chatGroup)
 
 	if err != nil {
-		log.Printf("组装群组配置内联键盘异常 err %s", err.Error())
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+		}).Error("组装群组配置内联键盘异常")
 		return
 	}
 
@@ -934,7 +1096,10 @@ func mainMenuCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	member, err := getChatMember(bot, chatId, userId)
 
 	if err != nil {
-		log.Println("获取聊天成员异常", err)
+		logrus.WithFields(logrus.Fields{
+			"chatId":     chatId,
+			"fromUserId": userId,
+		}).Error("获取聊天成员异常")
 		return
 	}
 
@@ -972,12 +1137,14 @@ func addAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 }
 
 func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
-	fromUser := query.From
 	chatId := query.Message.Chat.ID
 
 	sendMsg, err := buildAdminGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询管理群列表异常 %s ", fromUser.ID, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"fromUserId": query.From.ID,
+			"err":        err,
+		}).Error("查询管理群列表异常")
 		return
 	}
 
@@ -989,12 +1156,14 @@ func adminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 }
 
 func joinedGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
-	fromUser := query.From
 	fromChatId := query.Message.Chat.ID
 
 	sendMsg, err := buildJoinedGroupMsg(query)
 	if err != nil {
-		log.Printf("TgUserId %v 查询加入的群列表异常 %s ", fromUser.ID, err.Error())
+		logrus.WithFields(logrus.Fields{
+			"fromUserId": query.From.ID,
+			"err":        err,
+		}).Error("查询加入的群列表异常")
 		return
 	}
 

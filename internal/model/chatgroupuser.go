@@ -1,8 +1,8 @@
 package model
 
 import (
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"telegram-dice-bot/internal/utils"
 )
 
@@ -21,7 +21,7 @@ func (c *ChatGroupUser) Create(db *gorm.DB) error {
 	if c.Id == "" {
 		id, err := utils.NextID()
 		if err != nil {
-			log.Println("SnowFlakeId create error")
+			logrus.Error("SnowFlakeId create error")
 			return err
 		}
 		c.Id = id

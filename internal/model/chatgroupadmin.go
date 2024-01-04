@@ -1,8 +1,8 @@
 package model
 
 import (
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"log"
 	"telegram-dice-bot/internal/utils"
 )
 
@@ -16,7 +16,7 @@ type ChatGroupAdmin struct {
 func CreateChatGroupAdmin(db *gorm.DB, chatGroupAdmin *ChatGroupAdmin) error {
 	id, err := utils.NextID()
 	if err != nil {
-		log.Println("SnowFlakeId create error")
+		logrus.Error("SnowFlakeId create error")
 		return err
 	}
 	chatGroupAdmin.Id = id
