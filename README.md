@@ -130,7 +130,7 @@ deanxv/telegram-dice-bot
 
 点击一键部署:
 
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/SEFL7Z?referralCode=deanxv)
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/81HN7O)
 
 **一键部署后 `MYSQL_DSN` `REDIS_CONN_STRING` `TELEGRAM_API_TOKEN`变量也需要替换！**
 
@@ -161,8 +161,8 @@ deanxv/telegram-dice-bot
 
 ### 环境变量
 
-1. `MYSQL_DSN`：`MYSQL_DSN=root:123456@tcp(localhost:3306)/telegram_dice_bot`
-2. `REDIS_CONN_STRING`：`REDIS_CONN_STRING:redis://default:<password>@<addr>:<port>`
+1. `MYSQL_DSN`：`root:123456@tcp(localhost:3306)/telegram_dice_bot`
+2. `REDIS_CONN_STRING`：`redis://default:<password>@<addr>:<port>`
 3. `TELEGRAM_API_TOKEN`：`683091xxxxxxxxxxxxxxxxywDuU` 你的TG机器人的TOKEN
 
 ## Telegram-Bot相关
