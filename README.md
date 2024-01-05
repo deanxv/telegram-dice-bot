@@ -130,7 +130,7 @@ deanxv/telegram-dice-bot
 
 点击一键部署:
 
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/81HN7O)
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/81HN7O?referralCode=deanxv)
 
 **一键部署后 `MYSQL_DSN` `REDIS_CONN_STRING` `TELEGRAM_API_TOKEN`变量也需要替换！**
 
