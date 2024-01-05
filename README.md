@@ -22,8 +22,8 @@ _觉得有点意思的话 别忘了点个🌟_
 4. 用户积分系统(群组隔离)
 5. 用户积分转让(群组隔离)
 6. 管理员积分调整(群组隔离)
-7. 参与开奖结果通知
-8. 用户积分变更通知
+7. 参与开奖结果通知(用户必须启用机器人)
+8. 用户积分变更通知(用户必须启用机器人)
 9. 每日签到奖励
 10. ...
 
@@ -164,3 +164,15 @@ deanxv/telegram-dice-bot
 1. `MYSQL_DSN`：`MYSQL_DSN=root:123456@tcp(localhost:3306)/telegram_dice_bot`
 2. `REDIS_CONN_STRING`：`REDIS_CONN_STRING:redis://default:<password>@<addr>:<port>`
 3. `TELEGRAM_API_TOKEN`：`683091xxxxxxxxxxxxxxxxywDuU` 你的TG机器人的TOKEN
+
+## Telegram-Bot相关
+
+### cmd
+```
+help - 帮助
+my - 我的积分
+myhistory - 竞猜历史
+sign - 每日签到
+menu - 菜单 [私有]
+reload - 重新载入 [管理员]
+```
