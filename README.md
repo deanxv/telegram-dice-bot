@@ -10,6 +10,8 @@ _觉得有点意思的话 别忘了点个🌟_
 或
 👥<a href="https://t.me/+HOSNzxTdUnIxNjdl" style="font-size: 20px;">点击进入TG群体验</a>
 
+目前项目迭代频繁、可能会有很多bug，所以🐞<a href="https://t.me/+HOSNzxTdUnIxNjdl" style="font-size: 20px;">此群组提交Bug</a>
+
 </div>
 
 ## 功能
