@@ -25,6 +25,7 @@ func handleGroupCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 		logrus.WithFields(logrus.Fields{
 			"chatId":     chatId,
 			"fromUserId": user.ID,
+			"err":        err,
 		}).Error("获取聊天成员异常")
 		return
 	}

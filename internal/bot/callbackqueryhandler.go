@@ -1099,6 +1099,7 @@ func mainMenuCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		logrus.WithFields(logrus.Fields{
 			"chatId":     chatId,
 			"fromUserId": userId,
+			"err":        err,
 		}).Error("获取聊天成员异常")
 		return
 	}
