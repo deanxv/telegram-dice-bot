@@ -125,6 +125,13 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 	if err != nil {
 		logrus.WithField("updateBalanceStr", updateBalanceStr).Error("updateBalance转int异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分存在非法字符:%s", updateBalanceStr))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
+		return
+	} else if updateBalance <= 0 || updateBalance > 99999999999999999999 {
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可转让积分范围[0-99999999999999999999]"))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
 		return
 	}
 
@@ -381,6 +388,13 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 			"err":              err,
 		}).Error("updateBalance转int异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分存在非法字符:%s", updateBalanceStr))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
+		return
+	} else if updateBalance <= 0 || updateBalance > 99999999999999999999 {
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可调整积分范围[0-99999999999999999999]"))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
 		return
 	}
 
