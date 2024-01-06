@@ -386,15 +386,19 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 
 	// 查询用户信息
 	chatGroupUser := &model.ChatGroupUser{
-		Id: chatGroupUserId,
+		Id:          chatGroupUserId,
+		ChatGroupId: botPrivateChatCache.ChatGroupId,
 	}
-	groupUser, err := chatGroupUser.QueryById(db)
+	groupUser, err := chatGroupUser.QueryByIdAndChatGroupId(db)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"chatGroupUserId": chatGroupUserId,
+			"ChatGroupId":     botPrivateChatCache.ChatGroupId,
 			"err":             err,
 		}).Warn("查询用户信息异常")
 		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("当前群组内未查询到该用户,用户Id:%s", chatGroupUserId))
+		_, err = sendMessage(bot, &sendMsg)
+		blockedOrKicked(err, chatId)
 		return
 	}
 
