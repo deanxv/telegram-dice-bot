@@ -11,11 +11,11 @@ type QuickThereBetRecord struct {
 	ChatGroupUserId string  `json:"chat_group_user_id" gorm:"type:varchar(64);not null"` // 用户ID
 	ChatGroupId     string  `json:"chat_group_id" gorm:"type:varchar(64);not null;"`
 	IssueNumber     string  `json:"issue_number" gorm:"type:varchar(64);not null"`
-	BetType         string  `json:"bet_type" gorm:"type:varchar(64);not null"`          // 下注类型
-	BetAmount       float64 `json:"bet_amount" gorm:"type:decimal(20, 2);not null"`     // 下注金额
-	SettleStatus    int     `json:"settle_status" gorm:"type:int(11);not null"`         // 结算状态
-	BetResultType   *int    `json:"bet_result_type" gorm:"type:int(11);default:null"`   // 下注结果输赢
-	BetResultAmount string  `json:"bet_result_amount" gorm:"type:int(11);default:null"` // 下注结果
+	BetType         string  `json:"bet_type" gorm:"type:varchar(64);not null"`               // 下注类型
+	BetAmount       float64 `json:"bet_amount" gorm:"type:decimal(20, 2);not null"`          // 下注金额
+	SettleStatus    int     `json:"settle_status" gorm:"type:int(11);not null"`              // 结算状态
+	BetResultType   *int    `json:"bet_result_type" gorm:"type:int(11);default:null"`        // 下注结果输赢
+	BetResultAmount string  `json:"bet_result_amount" gorm:"type:varchar(255);default:null"` // 下注结果
 	UpdateTime      string  `json:"update_time" gorm:"type:varchar(255);not null"`
 	CreateTime      string  `json:"create_time" gorm:"type:varchar(255);not null"`
 }
