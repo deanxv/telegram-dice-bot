@@ -593,7 +593,7 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	if errors.Is(issueNumberResult.Err(), redis.Nil) || issueNumberResult == nil {
 		logrus.WithFields(logrus.Fields{
 			"redisKey": redisKey,
-			"err":      err,
+			"err":      issueNumberResult.Err(),
 		}).Warn("redis键不存在")
 		replyMsg := tgbotapi.NewMessage(tgChatGroupId, "当前暂无开奖活动!")
 		replyMsg.ReplyToMessageID = messageId
@@ -603,7 +603,7 @@ func handleQuickThereBettingText(bot *tgbotapi.BotAPI, chatGroup *model.ChatGrou
 	} else if issueNumberResult.Err() != nil {
 		logrus.WithFields(logrus.Fields{
 			"redisKey": redisKey,
-			"err":      err,
+			"err":      issueNumberResult.Err(),
 		}).Error("redis获取当前期号异常")
 		return false, nil
 	}
