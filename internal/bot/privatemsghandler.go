@@ -128,8 +128,8 @@ func transferBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPrivate
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
 		return
-	} else if updateBalance <= 0 || updateBalance > 99999999999999999999 {
-		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可转让积分范围[0-99999999999999999999]"))
+	} else if updateBalance <= 0 || updateBalance > 9999999999 {
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可转让积分范围[0-9999999999]"))
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
 		return
@@ -391,8 +391,8 @@ func updateUserBalance(bot *tgbotapi.BotAPI, message *tgbotapi.Message, botPriva
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
 		return
-	} else if updateBalance <= 0 || updateBalance > 99999999999999999999 {
-		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可调整积分范围[0-99999999999999999999]"))
+	} else if updateBalance <= 0 || updateBalance > 9999999999 {
+		sendMsg = tgbotapi.NewMessage(chatId, fmt.Sprintf("积分不合法,可调整积分范围[0-9999999999]"))
 		_, err = sendMessage(bot, &sendMsg)
 		blockedOrKicked(err, chatId)
 		return
