@@ -8,12 +8,15 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"os"
 	"strconv"
 	"strings"
 	"telegram-dice-bot/internal/common"
 	"telegram-dice-bot/internal/enums"
 	"telegram-dice-bot/internal/model"
 )
+
+var whiteList = os.Getenv(WhiteList)
 
 // 处理私有Command消息
 func handlePrivateCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
@@ -26,6 +29,12 @@ func handlePrivateCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 func handlePrivateStartCommand(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	chatId := message.Chat.ID
 	fromUser := message.From
+
+	// 白名单
+	if whiteList != "" && !strings.Contains(whiteList, fmt.Sprintf("@%s", fromUser.UserName)) {
+		return
+	}
+
 	member, err := getChatMember(bot, chatId, fromUser.ID)
 
 	if err != nil {

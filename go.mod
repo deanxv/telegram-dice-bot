@@ -1,6 +1,8 @@
 module telegram-dice-bot
 
-go 1.20
+go 1.21
+
+toolchain go1.21.5
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
@@ -18,7 +20,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
+	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 )

@@ -25,7 +25,9 @@ _觉得有点意思的话 别忘了点个🌟_
 7. 参与开奖结果通知(用户必须启用机器人)
 8. 用户积分变更通知(用户必须启用机器人)
 9. 每日签到奖励
-10. ...
+10. 机器人交互白名单 
+
+...
 
 ### Bot命令
 
@@ -80,6 +82,7 @@ services:
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
       - TELEGRAM_API_TOKEN=6830xxxxxxxxxxxxxxxx3GawBHc7ywDuU  # 必须修改此行telegram-bot的token
+#      - WHITE_LIST=   # [可选]白名单 以@开头的用户名 比如@UserName
     depends_on:
       - redis
       - db
@@ -150,6 +153,8 @@ deanxv/telegram-dice-bot
    `REDIS_CONN_STRING`:`redis://default:<password>@<addr>:<port>`
 
    `TELEGRAM_API_TOKEN`:`你的TG机器人的TOKEN`
+   
+   `WHITE_LIST`:`@UserName` [可选]白名单 以@开头的用户名 比如@UserName
 
    保存。
 9. 选择 Redeploy。
@@ -164,6 +169,8 @@ deanxv/telegram-dice-bot
 1. `MYSQL_DSN：root:123456@tcp(localhost:3306)/telegram_dice_bot`
 2. `REDIS_CONN_STRING：redis://default:<password>@<addr>:<port>`
 3. `TELEGRAM_API_TOKEN：683091xxxxxxxxxxxxxxxxywDuU` 你的TG机器人的TOKEN
+4. `WHITE_LIST`:`@UserName` [可选]白名单 以@开头的用户名,比如@UserName,多个可用`,`分隔，设置白名单后,机器人的主菜单只有白名单才可唤醒
+
 
 ## Telegram-Bot相关
 

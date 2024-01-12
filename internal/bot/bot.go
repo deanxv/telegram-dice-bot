@@ -16,6 +16,7 @@ import (
 
 const (
 	TelegramAPIToken = "TELEGRAM_API_TOKEN"
+	WhiteList        = "WHITE_LIST"
 )
 
 var (
@@ -27,6 +28,7 @@ func StartBot() {
 	initDB()
 
 	bot := initTelegramBot()
+
 	initGameTask(bot)
 
 	updateConfig := tgbotapi.NewUpdate(0)
@@ -34,6 +36,7 @@ func StartBot() {
 	updates := bot.GetUpdatesChan(updateConfig)
 
 	for update := range updates {
+
 		if update.Message != nil {
 			go handleMessage(bot, update.Message)
 		} else if update.CallbackQuery != nil {
