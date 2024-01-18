@@ -47,15 +47,14 @@ _觉得有点意思的话 别忘了点个🌟_
 ```
 
 ### 功能示例(部分)
-
-<a href="https://sm.ms/image/4rBGa1uUCRc8MSZ" target="_blank"><img src="doc/img1.png" width="200"/></a>
-<a href="https://sm.ms/image/4zYmdnBCU7vQogy" target="_blank"><img src="doc/img2.png" width="200"/></a>
-<a href="https://sm.ms/image/nJmRrhHyVBD2W7w" target="_blank"><img src="doc/img3.png" width="200"/></a>
-</br>
-<a href="https://sm.ms/image/GC21pfqX6cPuEnB" target="_blank"><img src="doc/img4.png" width="193"/></a>
-<a href="https://sm.ms/image/EWobi4ezPBDNjOX" target="_blank"><img src="doc/img5.png" width="200"/></a>
-<a href="https://sm.ms/image/Cszb3NkgQpPif6Z" target="_blank"><img src="doc/img6.png" width="200"/></a>
-</br>
+<span><img src="doc/img1.png" width="200"/></span>
+<span><img src="doc/img2.png" width="200"/></span>
+<span><img src="doc/img3.png" width="200"/></span>
+<br>
+<span><img src="doc/img4.png" width="200"/></span>
+<span><img src="doc/img5.png" width="200"/></span>
+<span><img src="doc/img6.png" width="200"/></span>
+<br>
 
 ## 部署
 
