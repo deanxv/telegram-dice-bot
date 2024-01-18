@@ -48,13 +48,13 @@ _觉得有点意思的话 别忘了点个🌟_
 
 ### 功能示例(部分)
 
-<a href="https://sm.ms/image/4rBGa1uUCRc8MSZ" target="_blank"><img src="https://s2.loli.net/2024/01/02/4rBGa1uUCRc8MSZ.png" width="200"/></a>
-<a href="https://sm.ms/image/4zYmdnBCU7vQogy" target="_blank"><img src="https://s2.loli.net/2024/01/02/4zYmdnBCU7vQogy.png" width="200"/></a>
-<a href="https://sm.ms/image/nJmRrhHyVBD2W7w" target="_blank"><img src="https://s2.loli.net/2024/01/02/nJmRrhHyVBD2W7w.png" width="200"/></a>
+<a href="https://sm.ms/image/4rBGa1uUCRc8MSZ" target="_blank"><img src="doc/img1.png" width="200"/></a>
+<a href="https://sm.ms/image/4zYmdnBCU7vQogy" target="_blank"><img src="doc/img2.png" width="200"/></a>
+<a href="https://sm.ms/image/nJmRrhHyVBD2W7w" target="_blank"><img src="doc/img3.png" width="200"/></a>
 </br>
-<a href="https://sm.ms/image/GC21pfqX6cPuEnB" target="_blank"><img src="https://s2.loli.net/2024/01/02/GC21pfqX6cPuEnB.png" width="193"/></a>
-<a href="https://sm.ms/image/EWobi4ezPBDNjOX" target="_blank"><img src="https://s2.loli.net/2024/01/02/EWobi4ezPBDNjOX.png" width="200"/></a>
-<a href="https://sm.ms/image/Cszb3NkgQpPif6Z" target="_blank"><img src="https://s2.loli.net/2024/01/02/Cszb3NkgQpPif6Z.png" width="200"/></a>
+<a href="https://sm.ms/image/GC21pfqX6cPuEnB" target="_blank"><img src="doc/img4.png" width="193"/></a>
+<a href="https://sm.ms/image/EWobi4ezPBDNjOX" target="_blank"><img src="doc/img5.png" width="200"/></a>
+<a href="https://sm.ms/image/Cszb3NkgQpPif6Z" target="_blank"><img src="doc/img6.png" width="200"/></a>
 </br>
 
 ## 部署
@@ -139,8 +139,8 @@ deanxv/telegram-dice-bot
 
 或手动部署:
 
-1. 首先 fork 一份代码。
-2. 进入 [Zeabur](https://zeabur.com?referralCode=deanxv)，登录，进入控制台。
+1. 首先 **fork** 一份代码。
+2. 进入 [Zeabur](https://zeabur.com?referralCode=deanxv)，使用github登录，进入控制台。
 3. 新建一个 Project，在 Service -> Add Service 选择 prebuilt，选择 MySQL，并记下连接参数（用户名、密码、地址、端口）。
 4. 新建一个 Project，在 Service -> Add Service 选择 prebuilt，选择 Redis，并记下连接参数（密码、地址、端口）。
 5. 使用mysql视图化工具连接mysql，运行 ```create database `telegram_dice_bot` ``` 创建数据库。
