@@ -29,6 +29,9 @@ _觉得有点意思的话 别忘了点个🌟_
 
 ...
 
+*[TG联系](https://t.me/alaneast)可代部署/定制化*
+
+
 ### Bot命令
 
 ```
@@ -56,7 +59,7 @@ _觉得有点意思的话 别忘了点个🌟_
 <span><img src="doc/img6.png" width="200"/></span>
 <br>
 
-## 部署
+## 部署 
 
 ### 基于 Docker-Compose(All In One) 进行部署
 
