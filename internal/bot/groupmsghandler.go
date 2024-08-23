@@ -481,7 +481,7 @@ func handleGroupLeftChatMember(bot *tgbotapi.BotAPI, message *tgbotapi.Message) 
 			logrus.WithFields(logrus.Fields{
 				"tgChatGroupId": chatGroup.Id,
 				"tgUserId":      leftUser.ID,
-			}).Error("该用户非管理员")
+			}).Warn("该用户非管理员")
 			// 提交事务
 			if err := tx.Commit().Error; err != nil {
 				// 提交事务时出现异常，回滚事务
