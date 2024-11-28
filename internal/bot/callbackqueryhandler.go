@@ -89,7 +89,7 @@ func exitAdminGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery)
 		logrus.WithField("queryData", query.Data).Error("内联键盘解析异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -152,7 +152,7 @@ func transferBalanceCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -204,7 +204,7 @@ func exitGroupCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -298,7 +298,7 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -363,7 +363,7 @@ func chatGroupInfoCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) 
 	}
 
 	callbackDataQueryString := utils.MapToQueryString(map[string]string{
-		"callbackDataKey": callbackDataKey,
+		"callbackKey": callbackDataKey,
 	})
 
 	newInlineKeyboardMarkup := tgbotapi.NewInlineKeyboardMarkup(
@@ -397,7 +397,7 @@ func updateQuickThereTripletOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.C
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -459,7 +459,7 @@ func updateQuickThereSimpleOddsCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Ca
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -604,7 +604,7 @@ func updateChatGroupUserBalance(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -669,7 +669,7 @@ func queryChatGroupUser(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -731,7 +731,7 @@ func updateGameDrawCycleCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQ
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -794,7 +794,7 @@ func updateGameplayStatusCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.Callback
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -895,7 +895,7 @@ func updateGameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQu
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -967,7 +967,7 @@ func gameplayTypeCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
@@ -1030,14 +1030,14 @@ func chatGroupConfigCallBack(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery
 		}).Error("群配置信息查询异常")
 		return
 	}
-	callBackDataKey := queryStringToMap["callbackDataKey"]
+	callBackDataKey := queryStringToMap["callbackKey"]
 
 	callBackData, err := ButtonCallBackDataQueryFromRedis(callBackDataKey)
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"callBackDataKey": callBackDataKey,
-			"err":             err,
+			"callbackKey": callBackDataKey,
+			"err":         err,
 		}).Error("内联键盘回调参数redis查询异常")
 		return
 	}

@@ -163,7 +163,7 @@ func buildJoinedGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTe
 			}
 
 			callbackDataQueryString := utils.MapToQueryString(map[string]string{
-				"callbackDataKey": callbackDataKey,
+				"callbackKey": callbackDataKey,
 			})
 
 			inlineKeyboardRows = append(inlineKeyboardRows,
@@ -241,7 +241,7 @@ func buildAdminGroupMsg(query *tgbotapi.CallbackQuery) (*tgbotapi.EditMessageTex
 				}
 
 				callbackDataQueryString := utils.MapToQueryString(map[string]string{
-					"callbackDataKey": callbackDataKey,
+					"callbackKey": callbackDataKey,
 				})
 
 				inlineKeyboardRows = append(inlineKeyboardRows,
@@ -316,7 +316,7 @@ func buildGameplayTypeInlineKeyboardButton(chatGroupId string) ([][]tgbotapi.Inl
 		}
 
 		callBackDataQueryString := utils.MapToQueryString(map[string]string{
-			"callbackDataKey": callBackDataKey,
+			"callbackKey": callBackDataKey,
 		})
 
 		inlineKeyboardRows = append(inlineKeyboardRows,
@@ -339,7 +339,7 @@ func buildGameplayTypeInlineKeyboardButton(chatGroupId string) ([][]tgbotapi.Inl
 	}
 
 	callBackDataQueryString := utils.MapToQueryString(map[string]string{
-		"callbackDataKey": callbackDataKey,
+		"callbackKey": callbackDataKey,
 	})
 
 	inlineKeyboardRows = append(inlineKeyboardRows,
@@ -440,7 +440,7 @@ func buildChatGroupInlineKeyboardMarkup(query *tgbotapi.CallbackQuery, chatGroup
 	}
 
 	callbackDataQueryString := utils.MapToQueryString(map[string]string{
-		"callbackDataKey": callbackDataKey,
+		"callbackKey": callbackDataKey,
 	})
 
 	inlineKeyboardButtons, err := buildGameplayConfigInlineKeyboardButton(chatGroup, callbackDataQueryString)
